@@ -1,9 +1,7 @@
 from fastapi import FastAPI
 
-from app.api.routes import health
-from app.core.config import get_settings
-
-API_PREFIX = "/api"
+from app.router import API_PREFIX, api_router
+from app.shared.config import get_settings
 
 
 def create_app() -> FastAPI:
@@ -17,7 +15,7 @@ def create_app() -> FastAPI:
         openapi_url=f"{API_PREFIX}/openapi.json",
         redoc_url=None,
     )
-    app.include_router(health.router, prefix=API_PREFIX)
+    app.include_router(api_router)
     return app
 
 

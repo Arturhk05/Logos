@@ -2,6 +2,21 @@
 
 API da plataforma Logos, construída com FastAPI.
 
+## Estrutura do código
+
+O código é organizado por módulos: cada módulo reúne tudo de uma área do negócio (rotas, regras, modelos e acesso a dados).
+
+```
+app/
+├── main.py        # cria a aplicação FastAPI
+├── router.py      # reúne as rotas de todos os módulos sob /api
+├── shared/        # código usado por todos os módulos (configuração, banco de dados)
+└── modules/       # um pacote por área do negócio
+    └── health/
+```
+
+Um módulo pode depender de `shared` e de outros módulos, mas `shared` nunca depende de um módulo.
+
 ## Pré-requisitos
 
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) (gerenciador de dependências e de versões do Python)
@@ -82,7 +97,7 @@ Revise sempre a migration gerada antes de commitar: o autogenerate não detecta 
 |---|---|
 | `uv run pytest` | Executa os testes |
 | `uv run pytest --cov` | Executa os testes e exibe a cobertura de código, com as linhas não cobertas |
-| `uv run pytest tests/api/test_health.py` | Executa apenas um arquivo de testes |
+| `uv run pytest tests/api/health/test_health.py` | Executa apenas um arquivo de testes |
 | `uv run pytest tests/unit` | Executa apenas os testes unitários |
 
 Os testes de integração e de API sobem automaticamente um PostgreSQL descartável com [testcontainers](https://testcontainers.com/), por isso o **Docker precisa estar em execução**. O banco de desenvolvimento não é afetado. Os testes unitários não dependem do Docker.

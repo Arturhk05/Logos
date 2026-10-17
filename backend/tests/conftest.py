@@ -9,9 +9,9 @@ from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 from testcontainers.community.postgres import PostgresContainer
 
-from app.core.config import get_settings
-from app.db.session import get_engine, get_session, get_session_factory
 from app.main import create_app
+from app.shared.config import get_settings
+from app.shared.db.session import get_engine, get_session, get_session_factory
 
 POSTGRES_IMAGE = "postgres:18-alpine"
 PYPROJECT_PATH = Path(__file__).resolve().parents[1] / "pyproject.toml"

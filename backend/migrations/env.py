@@ -3,9 +3,8 @@ import logging
 from alembic import context
 from sqlalchemy import create_engine, pool
 
-import app.models  # noqa: F401  # registers every model on Base.metadata for autogenerate
-from app.core.config import get_settings
-from app.db.base import Base
+from app.shared.config import get_settings
+from app.shared.db.base import Base
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)-5.5s [%(name)s] %(message)s")
 
