@@ -71,6 +71,8 @@ Se a API do Docker estiver rodando, pare-a antes (`docker compose stop api`), po
 | `uv run pytest tests/api/test_health.py` | Executa apenas um arquivo de testes |
 | `uv run pytest tests/unit` | Executa apenas os testes unitários |
 
+Os testes de integração e de API sobem automaticamente um PostgreSQL descartável com [testcontainers](https://testcontainers.com/), por isso o **Docker precisa estar em execução**. O banco de desenvolvimento não é afetado. Os testes unitários não dependem do Docker.
+
 ### Organização dos testes
 
 | Pasta | Tipo | O que testa |
