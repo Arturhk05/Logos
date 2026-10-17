@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "API da plataforma Logos de gestão de incidentes logísticos"
 requires-python = ">=3.14"
 dependencies = [
+    "alembic>=1.20.0",
     "fastapi>=0.143.3",
     "psycopg[binary]>=3.3.6",
     "pydantic-settings>=2.16.0",
@@ -63,3 +64,20 @@ branch = true
 
 [tool.coverage.report]
 show_missing = true
+
+[tool.alembic]
+script_location = "%(here)s/migrations"
+file_template = "%%(year)d_%%(month).2d_%%(day).2d_%%(hour).2d%%(minute).2d-%%(rev)s_%%(slug)s"
+prepend_sys_path = ["."]
+
+[[tool.alembic.post_write_hooks]]
+name = "ruff_check"
+type = "module"
+module = "ruff"
+options = "check --fix REVISION_SCRIPT_FILENAME"
+
+[[tool.alembic.post_write_hooks]]
+name = "ruff_format"
+type = "module"
+module = "ruff"
+options = "format REVISION_SCRIPT_FILENAME"

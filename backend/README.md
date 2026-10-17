@@ -60,7 +60,21 @@ Se a API do Docker estiver rodando, pare-a antes (`docker compose stop api`), po
 | `uv run ruff check . --fix` | Lint, corrigindo automaticamente o que for possível |
 | `uv run ruff format .` | Formata o código |
 | `uv run ruff format --check .` | Verifica a formatação sem alterar arquivos |
-| `uv run mypy app tests` | Verificação de tipos (modo strict) |
+| `uv run mypy app tests migrations` | Verificação de tipos (modo strict) |
+
+## Migrations do banco de dados
+
+As migrations são gerenciadas pelo [Alembic](https://alembic.sqlalchemy.org/) e ficam em `migrations/versions/`. Os comandos usam o banco definido em `DATABASE_URL`.
+
+| Comando | O que faz |
+|---|---|
+| `uv run alembic upgrade head` | Aplica todas as migrations pendentes |
+| `uv run alembic revision --autogenerate -m "descrição"` | Gera uma migration a partir das mudanças nos modelos |
+| `uv run alembic downgrade -1` | Desfaz a última migration |
+| `uv run alembic current` | Mostra a migration aplicada no banco |
+| `uv run alembic history` | Lista todas as migrations |
+
+Revise sempre a migration gerada antes de commitar: o autogenerate não detecta tudo (por exemplo, renomeação de colunas aparece como remoção e criação). Um teste automatizado falha se algum modelo for alterado sem a migration correspondente.
 
 ## Testes
 

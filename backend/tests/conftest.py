@@ -1,17 +1,20 @@
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
+from alembic import command
+from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 from testcontainers.community.postgres import PostgresContainer
 
 from app.core.config import get_settings
-from app.db.base import Base
 from app.db.session import get_engine, get_session, get_session_factory
 from app.main import create_app
 
 POSTGRES_IMAGE = "postgres:18-alpine"
+PYPROJECT_PATH = Path(__file__).resolve().parents[1] / "pyproject.toml"
 
 
 def _clear_cached_settings() -> None:
@@ -28,7 +31,12 @@ def client() -> Iterator[TestClient]:
 
 
 @pytest.fixture(scope="session")
-def database_engine() -> Iterator[Engine]:
+def alembic_config() -> Config:
+    return Config(toml_file=str(PYPROJECT_PATH))
+
+
+@pytest.fixture(scope="session")
+def database_engine(alembic_config: Config) -> Iterator[Engine]:
     """Start a disposable PostgreSQL container once per test run.
 
     The application is pointed at it through the same settings used in production,
@@ -39,8 +47,9 @@ def database_engine() -> Iterator[Engine]:
         env.setenv("DATABASE_URL", postgres.get_connection_url())
         _clear_cached_settings()
 
+        command.upgrade(alembic_config, "head")
+
         engine = get_engine()
-        Base.metadata.create_all(engine)
         yield engine
         engine.dispose()
 
