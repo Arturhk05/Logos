@@ -5,6 +5,7 @@ API da plataforma Logos, construída com FastAPI.
 ## Pré-requisitos
 
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) (gerenciador de dependências e de versões do Python)
+- [Docker](https://docs.docker.com/get-docker/) (para o PostgreSQL local)
 
 O uv instala automaticamente a versão do Python definida em `.python-version`.
 
@@ -20,6 +21,16 @@ cp .env.example .env
 |---|---|---|
 | `ENVIRONMENT` | Ambiente de execução: `development`, `test` ou `production` | `development` |
 | `DATABASE_URL` | URL de conexão com o PostgreSQL | `postgresql+psycopg://logos:logos@localhost:5432/logos` |
+
+## Banco de dados
+
+O PostgreSQL de desenvolvimento roda via Docker Compose, a partir da raiz do repositório:
+
+| Comando | O que faz |
+|---|---|
+| `docker compose up -d` | Sobe o PostgreSQL em segundo plano, na porta `5432` |
+| `docker compose down` | Para o banco, mantendo os dados |
+| `docker compose down -v` | Para o banco e **apaga todos os dados** |
 
 ## Executar localmente
 
