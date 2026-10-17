@@ -3,8 +3,12 @@ import logging
 from alembic import context
 from sqlalchemy import create_engine, pool
 
+from app.modules.incidents import models as incident_models  # noqa: F401
+from app.modules.users import models as user_models  # noqa: F401
 from app.shared.config import get_settings
 from app.shared.db.base import Base
+
+# Every module with tables must be imported above, otherwise autogenerate will not see its models and will not create migrations for them.
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)-5.5s [%(name)s] %(message)s")
 

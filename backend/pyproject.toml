@@ -42,7 +42,7 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101"]  # assert is expected in tests
+"tests/**" = ["S101", "S105", "S106"]  # asserts and fake credentials are expected in tests
 
 [tool.mypy]
 explicit_package_bases = true
@@ -72,13 +72,13 @@ file_template = "%%(year)d_%%(month).2d_%%(day).2d_%%(hour).2d%%(minute).2d-%%(r
 prepend_sys_path = ["."]
 
 [[tool.alembic.post_write_hooks]]
-name = "ruff_check"
-type = "module"
-module = "ruff"
-options = "check --fix REVISION_SCRIPT_FILENAME"
-
-[[tool.alembic.post_write_hooks]]
 name = "ruff_format"
 type = "module"
 module = "ruff"
 options = "format REVISION_SCRIPT_FILENAME"
+
+[[tool.alembic.post_write_hooks]]
+name = "ruff_check"
+type = "module"
+module = "ruff"
+options = "check --fix REVISION_SCRIPT_FILENAME"
