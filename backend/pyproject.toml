@@ -45,6 +45,7 @@ select = [
 "tests/**" = ["S101"]  # assert is expected in tests
 
 [tool.mypy]
+explicit_package_bases = true
 strict = true
 plugins = ["pydantic.mypy"]
 
