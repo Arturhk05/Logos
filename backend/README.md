@@ -5,7 +5,7 @@ API da plataforma Logos, construída com FastAPI.
 ## Pré-requisitos
 
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) (gerenciador de dependências e de versões do Python)
-- [Docker](https://docs.docker.com/get-docker/) (para o PostgreSQL local)
+- [Docker](https://docs.docker.com/get-docker/) (para o PostgreSQL local e para executar a aplicação em containers)
 
 O uv instala automaticamente a versão do Python definida em `.python-version`.
 
@@ -22,22 +22,29 @@ cp .env.example .env
 | `ENVIRONMENT` | Ambiente de execução: `development`, `test` ou `production` | `development` |
 | `DATABASE_URL` | URL de conexão com o PostgreSQL | `postgresql+psycopg://logos:logos@localhost:5432/logos` |
 
-## Banco de dados
+## Executar com Docker
 
-O PostgreSQL de desenvolvimento roda via Docker Compose, a partir da raiz do repositório:
+Sobe a API e o PostgreSQL, sem precisar do uv nem do Python instalados. Execute a partir da raiz do repositório:
 
 | Comando | O que faz |
 |---|---|
-| `docker compose up -d` | Sobe o PostgreSQL em segundo plano, na porta `5432` |
-| `docker compose down` | Para o banco, mantendo os dados |
-| `docker compose down -v` | Para o banco e **apaga todos os dados** |
+| `docker compose up -d --build` | Constrói a imagem da API e sobe API e banco em segundo plano |
+| `docker compose ps` | Mostra o estado dos containers (devem aparecer como `healthy`) |
+| `docker compose logs -f api` | Acompanha os logs da API |
+| `docker compose down` | Para os containers, mantendo os dados |
+| `docker compose down -v` | Para os containers e **apaga todos os dados** |
 
-## Executar localmente
+## Executar para desenvolvimento
+
+Sobe apenas o banco no Docker e a API localmente, com recarga automática ao salvar arquivos:
 
 ```bash
+docker compose up -d db                   # na raiz do repositório: sobe só o PostgreSQL
 uv sync                                   # instala as dependências
 uv run uvicorn app.main:app --reload      # sobe a API em http://localhost:8000
 ```
+
+Se a API do Docker estiver rodando, pare-a antes (`docker compose stop api`), pois ela usa a mesma porta `8000`.
 
 | URL | Descrição |
 |---|---|
