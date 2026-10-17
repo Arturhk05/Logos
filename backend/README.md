@@ -42,7 +42,24 @@ uv run uvicorn app.main:app --reload      # sobe a API em http://localhost:8000
 | `uv run ruff check . --fix` | Lint, corrigindo automaticamente o que for possível |
 | `uv run ruff format .` | Formata o código |
 | `uv run ruff format --check .` | Verifica a formatação sem alterar arquivos |
-| `uv run mypy app` | Verificação de tipos (modo strict) |
+| `uv run mypy app tests` | Verificação de tipos (modo strict) |
+
+## Testes
+
+| Comando | O que faz |
+|---|---|
+| `uv run pytest` | Executa os testes |
+| `uv run pytest --cov` | Executa os testes e exibe a cobertura de código, com as linhas não cobertas |
+| `uv run pytest tests/api/test_health.py` | Executa apenas um arquivo de testes |
+| `uv run pytest tests/unit` | Executa apenas os testes unitários |
+
+### Organização dos testes
+
+| Pasta | Tipo | O que testa |
+|---|---|---|
+| `tests/unit/` | Unitário | Regras de negócio isoladas, sem banco de dados nem HTTP |
+| `tests/integration/` | Integração | Acesso a dados com PostgreSQL real |
+| `tests/api/` | API | Endpoints, da requisição HTTP à resposta, passando pelas regras e pelo banco |
 
 ## Dependências
 
