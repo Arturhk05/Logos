@@ -22,7 +22,7 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 def create_access_token(user: User, secret: str, lifetime: timedelta) -> str:
     issued_at = datetime.now(UTC)
-    claims = {"sub": str(user.id), "role": user.role.value, "iat": issued_at, "exp": issued_at + lifetime}
+    claims = {"sub": str(user.id), "iat": issued_at, "exp": issued_at + lifetime}
     return jwt.encode(claims, secret, algorithm=ALGORITHM)
 
 

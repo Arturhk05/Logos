@@ -3,7 +3,6 @@ from datetime import UTC, datetime, timedelta
 import jwt
 
 from app.modules.auth.security import create_access_token, hash_password, read_access_token, verify_password
-from app.modules.users.enums import UserRole
 from tests.factories import build_user
 
 PASSWORD = "senha-correta"
@@ -29,15 +28,15 @@ def test_hash_password_does_not_store_the_password() -> None:
     assert PASSWORD_HASH.startswith("$2b$")
 
 
-def test_access_token_carries_user_id_and_role() -> None:
-    user = build_user(UserRole.DRIVER)
+def test_access_token_carries_only_the_user_id() -> None:
+    user = build_user()
 
     token = create_access_token(user, SECRET, LIFETIME)
 
     assert read_access_token(token, SECRET) == user.id
     claims = jwt.decode(token, SECRET, algorithms=["HS256"])
+    assert set(claims) == {"sub", "iat", "exp"}
     assert claims["sub"] == str(user.id)
-    assert claims["role"] == "DRIVER"
     assert claims["exp"] - claims["iat"] == 28800
 
 
@@ -54,14 +53,14 @@ def test_read_access_token_rejects_token_signed_with_another_secret() -> None:
 
 
 def test_read_access_token_rejects_unsigned_token() -> None:
-    token = jwt.encode({"sub": "1", "role": "ANALYST"}, key=None, algorithm="none")
+    token = jwt.encode({"sub": "1"}, key=None, algorithm="none")
 
     assert read_access_token(token, SECRET) is None
 
 
 def test_read_access_token_rejects_non_numeric_subject() -> None:
     expires_at = datetime.now(UTC) + LIFETIME
-    token = jwt.encode({"sub": "abc", "role": "ANALYST", "exp": expires_at}, SECRET, algorithm="HS256")
+    token = jwt.encode({"sub": "abc", "exp": expires_at}, SECRET, algorithm="HS256")
 
     assert read_access_token(token, SECRET) is None
 

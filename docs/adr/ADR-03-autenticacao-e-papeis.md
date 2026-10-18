@@ -31,7 +31,9 @@ Frontend e API são servidos pelo **mesmo domínio** (`logos.arturkrauspenhar.co
   | `Path=/api` | O cookie só é enviado nas chamadas à API. |
   | `Max-Age=28800` | Expira em **8 horas**, a mesma validade do token. |
 
-- O token contém o identificador do usuário (`sub`) e o papel (`role`).
+- O token contém apenas o identificador do usuário (`sub`), a data de emissão (`iat`) e a expiração (`exp`). O papel não vai no token:
+  - a cada requisição, a API busca o usuário no banco e usa o papel que está lá. Uma mudança de papel ou a remoção do usuário vale na requisição seguinte, sem esperar o token expirar;
+  - o frontend não consegue ler o token (cookie `HttpOnly`) e recebe o papel pela resposta do login e do `GET /api/me`.
 - Senhas armazenadas com hash **bcrypt**.
 - Endpoints de autenticação:
   - `POST /api/auth/login`: valida as credenciais e define o cookie.
