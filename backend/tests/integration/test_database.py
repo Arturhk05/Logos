@@ -12,3 +12,9 @@ def test_statement_timeout_is_applied_to_connections(db_session: Session) -> Non
     timeout = db_session.execute(text("show statement_timeout")).scalar_one()
 
     assert timeout == "5s"
+
+
+def test_connections_use_utc(db_session: Session) -> None:
+    timezone = db_session.execute(text("show timezone")).scalar_one()
+
+    assert timezone == "UTC"

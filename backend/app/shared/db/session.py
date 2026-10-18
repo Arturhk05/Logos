@@ -18,7 +18,7 @@ def get_engine() -> Engine:
         pool_pre_ping=True,
         connect_args={
             "connect_timeout": CONNECT_TIMEOUT_SECONDS,
-            "options": f"-c statement_timeout={STATEMENT_TIMEOUT_MILLISECONDS}",
+            "options": f"-c statement_timeout={STATEMENT_TIMEOUT_MILLISECONDS} -c TimeZone=UTC",
         },
     )
 
