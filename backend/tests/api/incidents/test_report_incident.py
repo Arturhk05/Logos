@@ -114,3 +114,13 @@ def test_idempotency_key_header_is_published_with_its_canonical_name(client: Tes
     headers = [parameter["name"] for parameter in operation["parameters"] if parameter["in"] == "header"]
 
     assert headers == ["Idempotency-Key"]
+
+
+@pytest.mark.parametrize("field", ["location", "description"])
+def test_report_with_null_character_returns_422(db_client: TestClient, login_as: LoginAs, field: str) -> None:
+    login_as(UserRole.DRIVER, "jose")
+
+    response = db_client.post("/api/incidents", json=REPORT | {field: "Pneu\x00furado"}, headers=_key())
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert response.json() == INVALID_REQUEST

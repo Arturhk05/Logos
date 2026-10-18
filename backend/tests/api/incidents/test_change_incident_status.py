@@ -165,3 +165,13 @@ def test_reason_length_is_checked_without_surrounding_whitespace(db_client: Test
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["closure_reason"] == "a" * 495
+
+
+def test_reason_with_null_character_returns_422(db_client: TestClient, db_session: Session, login_as: LoginAs) -> None:
+    camila = login_as(UserRole.ANALYST, "camila")
+    incident_id = _investigating_incident(db_session, camila)
+
+    response = db_client.patch(f"/api/incidents/{incident_id}/status", json={"status": "CLOSED", "version": 1, "reason": "Pneu\x00trocado"})
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert response.json() == INVALID_REQUEST

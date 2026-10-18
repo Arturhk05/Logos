@@ -5,6 +5,9 @@ from pydantic import BaseModel, ConfigDict, StringConstraints
 
 from app.modules.incidents.enums import Criticality, IncidentCategory, IncidentStatus
 
+# PostgreSQL text columns cannot store the NUL character; without this, such input fails with 500.
+WITHOUT_NUL = r"^[^\x00]*$"
+
 
 class UserSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -74,14 +77,14 @@ class VersionedRequest(BaseModel):
 
 class StatusChangeRequest(VersionedRequest):
     status: IncidentStatus
-    reason: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
+    reason: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500, pattern=WITHOUT_NUL)] | None = None
 
 
 class ReportIncidentRequest(BaseModel):
     category: IncidentCategory
     criticality: Criticality | None = None
-    location: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
-    description: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
+    location: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200, pattern=WITHOUT_NUL)]
+    description: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000, pattern=WITHOUT_NUL)]
 
 
 class IncidentConflict(BaseModel):

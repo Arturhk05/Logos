@@ -1,7 +1,7 @@
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query, status
+from fastapi import APIRouter, Depends, Header, Path, Query, status
 from fastapi.responses import JSONResponse
 
 from app.modules.auth.dependencies import CurrentUser, require_role
@@ -29,6 +29,8 @@ categories_router = APIRouter(prefix="/categories", tags=["categories"])
 CentralUser = Annotated[User, Depends(require_role(UserRole.ANALYST, UserRole.SUPERVISOR))]
 DriverUser = Annotated[User, Depends(require_role(UserRole.DRIVER))]
 Service = Annotated[IncidentService, Depends(get_incident_service)]
+# Bounded by the id column (PostgreSQL INTEGER): a larger value would fail in the database with 500.
+IncidentId = Annotated[int, Path(ge=1, le=2_147_483_647)]
 
 MAX_HISTORY_PAGE = 100_000
 
@@ -68,12 +70,14 @@ def report_incident(
 
 
 @router.get("/{incident_id:int}", response_model=IncidentDetail)
-def get_incident(incident_id: int, user: CurrentUser, service: Service) -> IncidentDetail:
+def get_incident(incident_id: IncidentId, user: CurrentUser, service: Service) -> IncidentDetail:
     return IncidentDetail.model_validate(service.get_visible_to(incident_id, user))
 
 
 @router.post("/{incident_id:int}/assume", response_model=IncidentDetail, responses=CONFLICT_RESPONSES)
-def assume_incident(incident_id: int, request: VersionedRequest, user: CentralUser, service: Service) -> IncidentDetail | JSONResponse:
+def assume_incident(
+    incident_id: IncidentId, request: VersionedRequest, user: CentralUser, service: Service
+) -> IncidentDetail | JSONResponse:
     try:
         incident = service.assume(incident_id, user, request.version)
     except ConflictError as error:
@@ -83,7 +87,7 @@ def assume_incident(incident_id: int, request: VersionedRequest, user: CentralUs
 
 @router.patch("/{incident_id:int}/status", response_model=IncidentDetail, responses=CONFLICT_RESPONSES)
 def change_incident_status(
-    incident_id: int, request: StatusChangeRequest, user: CentralUser, service: Service
+    incident_id: IncidentId, request: StatusChangeRequest, user: CentralUser, service: Service
 ) -> IncidentDetail | JSONResponse:
     try:
         incident = service.change_status(incident_id, user, request.version, request.status, request.reason)
