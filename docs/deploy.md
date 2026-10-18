@@ -38,6 +38,17 @@ export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 export MSYS_NO_PATHCONV=1   # só no Git Bash do Windows: impede que "/logos/..." vire um caminho do Windows
 ```
 
+As seções seguintes reaproveitam variáveis criadas nas anteriores. Para continuar em um terminal novo, recupere as que já existem:
+
+```bash
+VPC_ID=$(aws ec2 describe-vpcs --filters Name=is-default,Values=true --query 'Vpcs[0].VpcId' --output text)
+SG_EC2=$(aws ec2 describe-security-groups --filters Name=group-name,Values=logos-ec2 --query 'SecurityGroups[0].GroupId' --output text)
+SG_RDS=$(aws ec2 describe-security-groups --filters Name=group-name,Values=logos-rds --query 'SecurityGroups[0].GroupId' --output text)
+INSTANCE_ID=$(aws ec2 describe-instances --filters Name=tag:Name,Values=logos-api Name=instance-state-name,Values=running \
+  --query 'Reservations[0].Instances[0].InstanceId' --output text)
+tags() { echo "ResourceType=$1,Tags=[{Key=Name,Value=$2},{Key=Project,Value=logos}]"; }
+```
+
 ## 1. Orçamento, registro de imagens e segredos
 
 Orçamento mensal de US$ 30, com alerta por e-mail quando o gasto real passar de 80% e quando a previsão do mês passar de 100%:
@@ -134,4 +145,87 @@ Verificação: o banco não pode ter endpoint público.
 ```bash
 aws rds describe-db-instances --db-instance-identifier logos-db \
   --query 'DBInstances[0].[DBInstanceStatus,PubliclyAccessible,DBSubnetGroup.Subnets[].SubnetIdentifier]'
+```
+
+## 3. Servidor da API (EC2)
+
+Papel da instância, só com políticas gerenciadas pela AWS:
+
+- `AmazonSSMManagedInstanceCore`: acesso pelo SSM (Session Manager e Run Command, sem SSH). Essa política também permite ler os parâmetros do SSM, que é como a instância obtém os segredos no deploy. Ela não restringe quais parâmetros podem ser lidos, o que é aceitável numa conta que só tem os parâmetros `/logos/*`.
+- `AmazonEC2ContainerRegistryPullOnly`: apenas baixar imagens do ECR.
+
+```bash
+aws iam create-role --role-name logos-ec2-role --assume-role-policy-document file://infra/ec2-trust-policy.json \
+  --tags Key=Project,Value=logos
+aws iam attach-role-policy --role-name logos-ec2-role --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+aws iam attach-role-policy --role-name logos-ec2-role --policy-arn arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly
+aws iam create-instance-profile --instance-profile-name logos-ec2-profile --tags Key=Project,Value=logos
+aws iam add-role-to-instance-profile --instance-profile-name logos-ec2-profile --role-name logos-ec2-role
+```
+
+A porta 80 da EC2 aceita conexões apenas dos servidores de origem do CloudFront, pela prefix list gerenciada pela AWS (ADR-04). Nenhuma outra porta fica aberta.
+
+```bash
+PREFIX_LIST=$(aws ec2 describe-managed-prefix-lists \
+  --filters Name=prefix-list-name,Values=com.amazonaws.global.cloudfront.origin-facing \
+  --query 'PrefixLists[0].PrefixListId' --output text)
+aws ec2 authorize-security-group-ingress --group-id $SG_EC2 \
+  --ip-permissions "IpProtocol=tcp,FromPort=80,ToPort=80,PrefixListIds=[{PrefixListId=$PREFIX_LIST,Description=\"CloudFront origin-facing\"}]"
+```
+
+Instância ARM (`t4g.micro`) com Amazon Linux 2023, na subnet pública da mesma zona do RDS (sem custo de tráfego entre zonas). Não tem key pair: o acesso é só pelo Session Manager. O IMDSv2 é obrigatório, e os containers não alcançam o serviço de metadados (`HttpPutResponseHopLimit=1`). O [`ec2-user-data.sh`](../infra/ec2-user-data.sh) instala o Docker no primeiro boot.
+
+> Logo depois de criado, o instance profile pode levar alguns segundos para ser reconhecido (`Invalid IAM Instance Profile`). Basta repetir o comando.
+
+```bash
+DB_AZ=$(aws rds describe-db-instances --db-instance-identifier logos-db --query 'DBInstances[0].AvailabilityZone' --output text)
+PUBLIC_SUBNET=$(aws ec2 describe-subnets --filters Name=vpc-id,Values=$VPC_ID Name=availability-zone,Values=$DB_AZ Name=default-for-az,Values=true \
+  --query 'Subnets[0].SubnetId' --output text)
+AMI_ID=$(aws ssm get-parameter --name /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64 --query Parameter.Value --output text)
+
+INSTANCE_ID=$(aws ec2 run-instances \
+  --image-id $AMI_ID --instance-type t4g.micro \
+  --subnet-id $PUBLIC_SUBNET --security-group-ids $SG_EC2 \
+  --iam-instance-profile Name=logos-ec2-profile \
+  --metadata-options HttpTokens=required,HttpPutResponseHopLimit=1,HttpEndpoint=enabled \
+  --block-device-mappings 'DeviceName=/dev/xvda,Ebs={VolumeSize=20,VolumeType=gp3,Encrypted=true,DeleteOnTermination=true}' \
+  --user-data file://infra/ec2-user-data.sh \
+  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=logos-api},{Key=Project,Value=logos}]' \
+                       'ResourceType=volume,Tags=[{Key=Name,Value=logos-api},{Key=Project,Value=logos}]' \
+  --query 'Instances[0].InstanceId' --output text)
+aws ec2 wait instance-running --instance-ids $INSTANCE_ID
+
+# Proteção contra encerramento: a instância não pode ser apagada por engano (desligar antes de remover tudo).
+aws ec2 modify-instance-attribute --instance-id $INSTANCE_ID --disable-api-termination
+```
+
+Elastic IP: um endereço fixo para a instância. Sem ele, o IP público muda toda vez que a instância é parada e iniciada, e a origem do CloudFront deixaria de funcionar.
+
+```bash
+ALLOCATION_ID=$(aws ec2 allocate-address --domain vpc \
+  --tag-specifications 'ResourceType=elastic-ip,Tags=[{Key=Name,Value=logos-api},{Key=Project,Value=logos}]' \
+  --query AllocationId --output text)
+aws ec2 associate-address --instance-id $INSTANCE_ID --allocation-id $ALLOCATION_ID
+```
+
+Verificação: a instância aparece `Online` no SSM (1 a 3 minutos depois do boot), o Docker responde e os segredos podem ser lidos (o segundo comando mostra só o tamanho do valor, nunca o conteúdo).
+
+```bash
+aws ssm describe-instance-information --filters Key=InstanceIds,Values=$INSTANCE_ID --query 'InstanceInformationList[0].PingStatus'
+
+run_on_instance() {
+  local cmd
+  cmd=$(aws ssm send-command --instance-ids $INSTANCE_ID --document-name AWS-RunShellScript \
+    --parameters "commands=[\"$1\"]" --query Command.CommandId --output text)
+  aws ssm wait command-executed --command-id $cmd --instance-id $INSTANCE_ID
+  aws ssm get-command-invocation --command-id $cmd --instance-id $INSTANCE_ID --query StandardOutputContent --output text
+}
+run_on_instance "cloud-init status --wait >/dev/null; docker --version"
+run_on_instance "aws ssm get-parameter --region us-east-1 --name /logos/jwt-secret --with-decryption --query 'length(Parameter.Value)' --output text"
+```
+
+Para abrir um terminal na instância, sem SSH (requer o [Session Manager plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html)):
+
+```bash
+aws ssm start-session --target $INSTANCE_ID
 ```
