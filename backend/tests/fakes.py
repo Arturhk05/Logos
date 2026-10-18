@@ -1,5 +1,8 @@
 """In-memory implementations of repositories, for unit tests without a database."""
 
+from collections.abc import Collection
+
+from app.modules.incidents.enums import IncidentStatus
 from app.modules.incidents.models import Incident
 from app.modules.incidents.repository import IncidentChanges
 from app.modules.users.models import User
@@ -17,6 +20,10 @@ class InMemoryIncidentRepository:
 
     def get(self, incident_id: int) -> Incident | None:
         return self._incidents.get(incident_id)
+
+    def list_by_status(self, statuses: Collection[IncidentStatus]) -> list[Incident]:
+        matching = (incident for incident in self._incidents.values() if incident.status in statuses)
+        return sorted(matching, key=lambda incident: (incident.created_at, incident.id))
 
     def update_if_version(self, incident_id: int, expected_version: int, changes: IncidentChanges) -> Incident | None:
         incident = self._incidents.get(incident_id)

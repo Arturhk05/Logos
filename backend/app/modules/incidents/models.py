@@ -1,9 +1,10 @@
 from datetime import datetime
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.modules.incidents.enums import Criticality, IncidentCategory, IncidentStatus
+from app.modules.users.models import User
 from app.shared.db.base import Base
 from app.shared.db.constraints import enum_check
 
@@ -35,3 +36,7 @@ class Incident(Base):
     version: Mapped[int] = mapped_column(default=1, server_default="1")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    reporter: Mapped[User] = relationship(foreign_keys=[reporter_id])
+    assignee: Mapped[User | None] = relationship(foreign_keys=[assignee_id])
+    closed_by: Mapped[User | None] = relationship(foreign_keys=[closed_by_id])
