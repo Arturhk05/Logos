@@ -27,7 +27,7 @@ O analista assume um incidente antes de trabalhar nele (RN-02), e só o respons�
 
 - Cada incidente tem um campo `version`, incrementado a cada alteração.
 - O frontend recebe a versão junto com o incidente e a envia de volta ao salvar.
-- O service valida as regras de negócio sobre o estado lido do banco (papel do usuário, status, responsável) e confere se a versão enviada ainda é a atual.
+- O service valida as regras de negócio que dependem do estado lido do banco (status, responsável) e confere se a versão enviada ainda é a atual. As permissões que dependem só do papel do usuário são verificadas antes, na rota (ADR-06).
 - O repository grava com um `UPDATE` condicional e atômico. Por exemplo, ao assumir um incidente:
 
   ```sql
