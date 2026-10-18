@@ -1,3 +1,7 @@
+x-backend-environment: &backend-environment
+  ENVIRONMENT: development
+  DATABASE_URL: postgresql+psycopg://logos:logos@db:5432/logos
+
 services:
   db:
     image: postgres:18-alpine
@@ -15,16 +19,24 @@ services:
       timeout: 5s
       retries: 5
 
-  api:
+  migrate:
     build: ./backend
-    environment:
-      ENVIRONMENT: development
-      DATABASE_URL: postgresql+psycopg://logos:logos@db:5432/logos
-    ports:
-      - "8000:8000"
+    image: logos-api
+    command: ["alembic", "upgrade", "head"]
+    environment: *backend-environment
     depends_on:
       db:
         condition: service_healthy
+
+  api:
+    build: ./backend
+    image: logos-api
+    environment: *backend-environment
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 10s
