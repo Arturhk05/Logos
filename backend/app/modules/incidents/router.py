@@ -2,10 +2,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from app.modules.auth.dependencies import require_role
+from app.modules.auth.dependencies import CurrentUser, require_role
 from app.modules.incidents.dependencies import get_incident_service
 from app.modules.incidents.enums import Criticality, IncidentCategory
-from app.modules.incidents.schemas import IncidentQueueResponse
+from app.modules.incidents.schemas import IncidentDetail, IncidentQueueResponse
 from app.modules.incidents.service import IncidentService
 from app.modules.users.enums import UserRole
 from app.modules.users.models import User
@@ -25,3 +25,8 @@ def list_active_incidents(
 ) -> IncidentQueueResponse:
     queue = service.list_active(criticality or (), category or ())
     return IncidentQueueResponse.model_validate(queue)
+
+
+@router.get("/{incident_id}", response_model=IncidentDetail)
+def get_incident(incident_id: int, user: CurrentUser, service: Service) -> IncidentDetail:
+    return IncidentDetail.model_validate(service.get_visible_to(incident_id, user))

@@ -29,3 +29,23 @@ class IncidentQueueResponse(BaseModel):
 
     items: list[IncidentQueueItem]
     counts: dict[Criticality, int]
+
+
+class IncidentDetail(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    category: IncidentCategory
+    criticality: Criticality
+    status: IncidentStatus
+    location: str
+    description: str
+    reporter: UserSummary
+    assignee: UserSummary | None
+    closed_by: UserSummary | None
+    closed_at: datetime | None
+    closure_reason: str | None
+
+    version: int
+    created_at: datetime
+    updated_at: datetime
