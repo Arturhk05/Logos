@@ -14,6 +14,8 @@ from app.shared.config import get_settings
 from app.shared.db.session import get_engine, get_session, get_session_factory
 
 POSTGRES_IMAGE = "postgres:18-alpine"
+# The session cookie is Secure, and httpx only sends it back over HTTPS.
+BASE_URL = "https://testserver"
 PYPROJECT_PATH = Path(__file__).resolve().parents[1] / "pyproject.toml"
 
 
@@ -26,7 +28,7 @@ def _clear_cached_settings() -> None:
 @pytest.fixture
 def client() -> Iterator[TestClient]:
     """HTTP client without a database, for endpoints that do not access it."""
-    with TestClient(create_app()) as test_client:
+    with TestClient(create_app(), base_url=BASE_URL) as test_client:
         yield test_client
 
 
@@ -79,5 +81,5 @@ def db_client(db_session: Session) -> Iterator[TestClient]:
             yield db_session
 
     app.dependency_overrides[get_session] = override_get_session
-    with TestClient(app) as test_client:
+    with TestClient(app, base_url=BASE_URL) as test_client:
         yield test_client

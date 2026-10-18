@@ -18,6 +18,10 @@ class AuthService:
         self._secret = secret
         self._token_lifetime = token_lifetime
 
+    @property
+    def token_lifetime(self) -> timedelta:
+        return self._token_lifetime
+
     def authenticate(self, username: str, password: str) -> User:
         """Return the user owning these credentials, without revealing which of the two is wrong."""
         user = self._users.get_by_username(username.strip().lower())
