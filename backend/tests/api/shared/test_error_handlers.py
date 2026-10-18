@@ -1,8 +1,11 @@
+from collections.abc import Iterator
+
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from app.shared.config import get_settings
 from app.shared.errors import BusinessRuleError, ConflictError, DomainError, NotFoundError, PermissionDeniedError
 
 ERROR_PATH = "/api/test-error"
@@ -34,3 +37,57 @@ def test_domain_error_is_returned_with_its_status_and_message(error: DomainError
 
     assert response.status_code == expected_status
     assert response.json() == {"detail": error.message}
+
+
+@pytest.fixture
+def production(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Without debug mode, Starlette uses the 500 handler instead of rendering the traceback."""
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
+@pytest.mark.usefixtures("production")
+def test_unexpected_error_returns_generic_message_without_internal_details() -> None:
+    with _client_raising(RuntimeError("could not connect to postgresql://logos:secret@db")) as client:
+        response = client.get(ERROR_PATH)
+
+    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert response.json() == {"detail": "Ocorreu um erro inesperado. Tente novamente em instantes."}
+
+
+VALIDATION_PATH = "/api/test-validation"
+
+
+def _client_validating_quantity() -> TestClient:
+    app = create_app()
+
+    def endpoint(quantity: int) -> None:
+        pass
+
+    app.add_api_route(VALIDATION_PATH, endpoint)
+    return TestClient(app)
+
+
+def test_invalid_request_returns_generic_message_without_validation_details() -> None:
+    with _client_validating_quantity() as client:
+        response = client.get(VALIDATION_PATH, params={"quantity": "abc"})
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert response.json() == {"detail": "Dados inválidos. Revise os campos e tente novamente."}
+
+
+def test_invalid_request_logs_the_invalid_fields_without_their_values(caplog: pytest.LogCaptureFixture) -> None:
+    with _client_validating_quantity() as client:
+        client.get(VALIDATION_PATH, params={"quantity": "s3cr3t-value"})
+
+    assert "quantity" in caplog.text
+    assert "s3cr3t-value" not in caplog.text
+
+
+def test_unknown_route_keeps_default_not_found(client: TestClient) -> None:
+    response = client.get("/api/does-not-exist")
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json() == {"detail": "Not Found"}
