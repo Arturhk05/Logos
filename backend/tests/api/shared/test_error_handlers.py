@@ -6,7 +6,14 @@ from fastapi.testclient import TestClient
 
 from app.main import create_app
 from app.shared.config import get_settings
-from app.shared.errors import BusinessRuleError, ConflictError, DomainError, NotFoundError, PermissionDeniedError
+from app.shared.errors import (
+    AuthenticationError,
+    BusinessRuleError,
+    ConflictError,
+    DomainError,
+    NotFoundError,
+    PermissionDeniedError,
+)
 
 ERROR_PATH = "/api/test-error"
 
@@ -28,8 +35,9 @@ def _client_raising(error: Exception) -> TestClient:
         (PermissionDeniedError("Apenas o responsável pode alterar este incidente."), status.HTTP_403_FORBIDDEN),
         (BusinessRuleError("Informe o motivo do encerramento."), status.HTTP_422_UNPROCESSABLE_CONTENT),
         (ConflictError("Este incidente foi alterado por outra pessoa.", current=object()), status.HTTP_409_CONFLICT),
+        (AuthenticationError("Usuário ou senha inválidos."), status.HTTP_401_UNAUTHORIZED),
     ],
-    ids=["not_found", "permission_denied", "business_rule", "conflict"],
+    ids=["not_found", "permission_denied", "business_rule", "conflict", "authentication"],
 )
 def test_domain_error_is_returned_with_its_status_and_message(error: DomainError, expected_status: int) -> None:
     with _client_raising(error) as client:

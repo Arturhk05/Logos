@@ -17,6 +17,10 @@ class NotFoundError(DomainError):
     """The requested resource does not exist."""
 
 
+class AuthenticationError(DomainError):
+    """The user could not be identified: invalid credentials or an expired session."""
+
+
 class PermissionDeniedError(DomainError):
     """The user's role does not allow the action."""
 

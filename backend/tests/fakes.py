@@ -2,6 +2,7 @@
 
 from app.modules.incidents.models import Incident
 from app.modules.incidents.repository import IncidentChanges
+from app.modules.users.models import User
 
 
 class InMemoryIncidentRepository:
@@ -25,3 +26,14 @@ class InMemoryIncidentRepository:
             setattr(incident, field, value)
         incident.version += 1
         return incident
+
+
+class InMemoryUserRepository:
+    def __init__(self, *users: User) -> None:
+        self._users = {user.id: user for user in users}
+
+    def get(self, user_id: int) -> User | None:
+        return self._users.get(user_id)
+
+    def get_by_username(self, username: str) -> User | None:
+        return next((user for user in self._users.values() if user.username == username), None)

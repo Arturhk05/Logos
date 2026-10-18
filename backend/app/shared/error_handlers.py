@@ -5,11 +5,19 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from app.shared.errors import BusinessRuleError, ConflictError, DomainError, NotFoundError, PermissionDeniedError
+from app.shared.errors import (
+    AuthenticationError,
+    BusinessRuleError,
+    ConflictError,
+    DomainError,
+    NotFoundError,
+    PermissionDeniedError,
+)
 
 logger = logging.getLogger(__name__)
 
 ERROR_STATUS: dict[type[DomainError], int] = {
+    AuthenticationError: status.HTTP_401_UNAUTHORIZED,
     NotFoundError: status.HTTP_404_NOT_FOUND,
     PermissionDeniedError: status.HTTP_403_FORBIDDEN,
     BusinessRuleError: status.HTTP_422_UNPROCESSABLE_CONTENT,
