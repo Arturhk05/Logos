@@ -6,10 +6,11 @@ from fastapi.responses import JSONResponse
 
 from app.modules.auth.dependencies import CurrentUser, require_role
 from app.modules.incidents.dependencies import get_incident_service
-from app.modules.incidents.enums import Criticality, IncidentCategory
+from app.modules.incidents.enums import Criticality, IncidentCategory, IncidentStatus
 from app.modules.incidents.schemas import (
     IncidentConflict,
     IncidentDetail,
+    IncidentHistoryResponse,
     IncidentQueueResponse,
     IncidentSummary,
     ReportIncidentRequest,
@@ -26,6 +27,8 @@ router = APIRouter(prefix="/incidents", tags=["incidents"])
 CentralUser = Annotated[User, Depends(require_role(UserRole.ANALYST, UserRole.SUPERVISOR))]
 DriverUser = Annotated[User, Depends(require_role(UserRole.DRIVER))]
 Service = Annotated[IncidentService, Depends(get_incident_service)]
+
+MAX_HISTORY_PAGE = 100_000
 
 CONFLICT_RESPONSES: dict[int | str, dict[str, Any]] = {status.HTTP_409_CONFLICT: {"model": IncidentConflict}}
 
@@ -90,3 +93,17 @@ def change_incident_status(
 @router.get("/mine", response_model=list[IncidentSummary])
 def list_my_incidents(user: DriverUser, service: Service) -> list[IncidentSummary]:
     return [IncidentSummary.model_validate(incident) for incident in service.list_reported_by(user)]
+
+
+@router.get("/history", response_model=IncidentHistoryResponse)
+def list_incident_history(
+    _: CentralUser,
+    service: Service,
+    statuses: Annotated[list[IncidentStatus] | None, Query(alias="status")] = None,
+    criticality: Annotated[list[Criticality] | None, Query()] = None,
+    category: Annotated[list[IncidentCategory] | None, Query()] = None,
+    page: Annotated[int, Query(ge=1, le=MAX_HISTORY_PAGE)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> IncidentHistoryResponse:
+    history = service.list_closed(page, page_size, statuses or (), criticality or (), category or ())
+    return IncidentHistoryResponse.model_validate(history)

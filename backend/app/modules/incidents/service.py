@@ -64,6 +64,16 @@ class IncidentQueue:
     counts: dict[Criticality, int]
 
 
+@dataclass(frozen=True)
+class IncidentPage:
+    """One page of incidents, plus how many incidents match in total."""
+
+    items: list[Incident]
+    total: int
+    page: int
+    page_size: int
+
+
 class IncidentService:
     def __init__(self, repository: IncidentRepository) -> None:
         self._repository = repository
@@ -103,6 +113,32 @@ class IncidentService:
             if (not criticalities or incident.criticality in criticalities) and (not categories or incident.category in categories)
         ]
         return IncidentQueue(items=sorted(selected, key=lambda incident: incident.criticality.priority), counts=counts)
+
+    def list_closed(
+        self,
+        page: int,
+        page_size: int,
+        statuses: Collection[IncidentStatus] = (),
+        criticalities: Collection[Criticality] = (),
+        categories: Collection[IncidentCategory] = (),
+    ) -> IncidentPage:
+        """Return one page of the history: closed and inconclusive incidents, from the most recently closed.
+
+        An empty filter means no filter. Asking for an active status is refused instead of ignored,
+        so a filter never silently turns into "everything".
+        """
+        if not set(statuses) <= FINAL_STATUSES:
+            raise BusinessRuleError("O histórico mostra apenas incidentes encerrados.")
+
+        criteria = IncidentFilter(
+            statuses=statuses or FINAL_STATUSES,
+            criticalities=criticalities,
+            categories=categories,
+            order=IncidentOrder.RECENTLY_CLOSED_FIRST,
+            offset=(page - 1) * page_size,
+            limit=page_size,
+        )
+        return IncidentPage(items=self._repository.search(criteria), total=self._repository.count(criteria), page=page, page_size=page_size)
 
     def list_reported_by(self, reporter: User) -> list[Incident]:
         """Return every incident `reporter` reported, in any status, from the newest to the oldest."""

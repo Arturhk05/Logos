@@ -311,3 +311,15 @@ def test_simultaneous_reports_with_the_same_key_create_one_incident(database_eng
         with Session(database_engine) as cleanup, cleanup.begin():
             cleanup.execute(delete(Incident).where(Incident.reporter_id == driver.id))
             cleanup.execute(delete(User).where(User.id == driver.id))
+
+
+def test_recently_closed_first_puts_incidents_without_closing_time_last(db_session: Session) -> None:
+    driver = create_user(db_session, UserRole.DRIVER)
+    without_closing_time = create_incident(db_session, driver, status=IncidentStatus.CLOSED, closed_at=None)
+    closed_at_10 = create_incident(db_session, driver, status=IncidentStatus.CLOSED, closed_at=_at(10))
+
+    listed = SqlAlchemyIncidentRepository(db_session).search(
+        IncidentFilter(reporter_id=driver.id, order=IncidentOrder.RECENTLY_CLOSED_FIRST)
+    )
+
+    assert _ids(listed) == [closed_at_10.id, without_closing_time.id]

@@ -25,6 +25,20 @@ class IncidentSummary(BaseModel):
     assignee: UserSummary | None
 
 
+class IncidentHistoryItem(IncidentSummary):
+    closed_by: UserSummary | None
+    closed_at: datetime | None
+
+
+class IncidentHistoryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    items: list[IncidentHistoryItem]
+    total: int
+    page: int
+    page_size: int
+
+
 class IncidentQueueResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

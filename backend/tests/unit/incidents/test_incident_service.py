@@ -410,3 +410,81 @@ def test_driver_lists_own_incidents_newest_first(driver: User) -> None:
     service = IncidentService(InMemoryIncidentRepository(closed_at_8, at_10, at_9, from_another_driver))
 
     assert service.list_reported_by(driver) == [at_10, at_9, closed_at_8]
+
+
+# --- history -----------------------------------------------------------------
+
+
+def build_closed(reporter: User, closed_at_hour: int, status: IncidentStatus = CLOSED, **overrides: object) -> Incident:
+    fields: dict[str, object] = {"status": status, "closed_at": _at(closed_at_hour), "closure_reason": "Resolvido", "created_at": _at(1)}
+    return build_incident(reporter, **(fields | overrides))
+
+
+def test_history_lists_only_closed_incidents_recently_closed_first(driver: User) -> None:
+    closed_at_10 = build_closed(driver, 10)
+    inconclusive_at_11 = build_closed(driver, 11, INCONCLUSIVE)
+    still_open = build_incident(driver, created_at=_at(12))
+    service = IncidentService(InMemoryIncidentRepository(closed_at_10, inconclusive_at_11, still_open))
+
+    page = service.list_closed(page=1, page_size=20)
+
+    assert page.items == [inconclusive_at_11, closed_at_10]
+    assert page.total == 2
+    assert (page.page, page.page_size) == (1, 20)
+
+
+def test_history_paginates(driver: User) -> None:
+    oldest, middle, newest = build_closed(driver, 8), build_closed(driver, 9), build_closed(driver, 10)
+    service = IncidentService(InMemoryIncidentRepository(oldest, middle, newest))
+
+    page = service.list_closed(page=2, page_size=2)
+
+    assert page.items == [oldest]
+    assert page.total == 3
+
+
+def test_history_page_past_the_end_is_empty(driver: User) -> None:
+    service = IncidentService(InMemoryIncidentRepository(build_closed(driver, 8), build_closed(driver, 9)))
+
+    page = service.list_closed(page=5, page_size=2)
+
+    assert page.items == []
+    assert page.total == 2
+
+
+def test_history_filters_by_status_criticality_and_category(driver: User) -> None:
+    expected = build_closed(driver, 8, INCONCLUSIVE, criticality=Criticality.HIGH, category=IncidentCategory.ROAD_BLOCKAGE)
+    other_status = build_closed(driver, 9, CLOSED, criticality=Criticality.HIGH, category=IncidentCategory.ROAD_BLOCKAGE)
+    other_criticality = build_closed(driver, 10, INCONCLUSIVE, criticality=Criticality.LOW, category=IncidentCategory.ROAD_BLOCKAGE)
+    other_category = build_closed(driver, 11, INCONCLUSIVE, criticality=Criticality.HIGH, category=IncidentCategory.ADVERSE_WEATHER)
+    service = IncidentService(InMemoryIncidentRepository(expected, other_status, other_criticality, other_category))
+
+    page = service.list_closed(
+        page=1,
+        page_size=20,
+        statuses={INCONCLUSIVE},
+        criticalities={Criticality.HIGH},
+        categories={IncidentCategory.ROAD_BLOCKAGE},
+    )
+
+    assert page.items == [expected]
+    assert page.total == 1
+
+
+@pytest.mark.parametrize("active_status", [OPEN, INVESTIGATING])
+def test_history_with_active_status_is_rejected(driver: User, active_status: IncidentStatus) -> None:
+    service = IncidentService(InMemoryIncidentRepository(build_closed(driver, 8)))
+
+    with pytest.raises(BusinessRuleError, match="encerrados"):
+        service.list_closed(page=1, page_size=20, statuses={CLOSED, active_status})
+
+
+def test_history_puts_incidents_without_closing_time_last(driver: User) -> None:
+    first_without_time = build_closed(driver, 8, closed_at=None)
+    second_without_time = build_closed(driver, 8, closed_at=None)
+    closed_at_9 = build_closed(driver, 9)
+    service = IncidentService(InMemoryIncidentRepository(first_without_time, closed_at_9, second_without_time))
+
+    page = service.list_closed(page=1, page_size=20)
+
+    assert page.items == [closed_at_9, second_without_time, first_without_time]

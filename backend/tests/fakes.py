@@ -1,5 +1,7 @@
 """In-memory implementations of repositories, for unit tests without a database."""
 
+from datetime import UTC, datetime
+
 from app.modules.incidents.models import Incident
 from app.modules.incidents.repository import IncidentChanges, IncidentFilter, IncidentOrder
 from app.modules.users.models import User
@@ -25,11 +27,13 @@ class InMemoryIncidentRepository:
     def search(self, criteria: IncidentFilter) -> list[Incident]:
         newest_first = criteria.order is not IncidentOrder.OLDEST_FIRST
         by_closing = criteria.order is IncidentOrder.RECENTLY_CLOSED_FIRST
-        ordered = sorted(
-            self._matching(criteria),
-            key=lambda incident: (incident.closed_at if by_closing else incident.created_at, incident.id),
-            reverse=newest_first,
-        )
+
+        def sort_key(incident: Incident) -> tuple[bool, datetime, int]:
+            moment = incident.closed_at if by_closing else incident.created_at
+            # Same as the database: in descending order, a missing closing time goes last.
+            return (moment is not None, moment or datetime.min.replace(tzinfo=UTC), incident.id)
+
+        ordered = sorted(self._matching(criteria), key=sort_key, reverse=newest_first)
         end = None if criteria.limit is None else criteria.offset + criteria.limit
         return ordered[criteria.offset : end]
 

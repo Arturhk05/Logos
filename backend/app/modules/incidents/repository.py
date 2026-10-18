@@ -132,7 +132,7 @@ class SqlAlchemyIncidentRepository:
 _ORDER_BY: dict[IncidentOrder, tuple[ColumnElement[Any], ...]] = {
     IncidentOrder.OLDEST_FIRST: (Incident.created_at.asc(), Incident.id.asc()),
     IncidentOrder.NEWEST_FIRST: (Incident.created_at.desc(), Incident.id.desc()),
-    IncidentOrder.RECENTLY_CLOSED_FIRST: (Incident.closed_at.desc(), Incident.id.desc()),
+    IncidentOrder.RECENTLY_CLOSED_FIRST: (Incident.closed_at.desc().nulls_last(), Incident.id.desc()),
 }
 
 
