@@ -69,3 +69,69 @@ for name in jwt-secret db-password; do
     --tags Key=Project,Value=logos --query Version --output text
 done
 ```
+
+## 2. Rede e banco
+
+A VPC padrão tem só subnets públicas. O banco fica em duas subnets privadas novas (o RDS exige duas zonas de disponibilidade), com uma route table que só tem a rota local, ou seja, sem saída nem entrada pela internet. Não há NAT Gateway: o banco não precisa acessar a internet.
+
+```bash
+VPC_ID=$(aws ec2 describe-vpcs --filters Name=is-default,Values=true --query 'Vpcs[0].VpcId' --output text)
+tags() { echo "ResourceType=$1,Tags=[{Key=Name,Value=$2},{Key=Project,Value=logos}]"; }
+
+SUBNET_A=$(aws ec2 create-subnet --vpc-id $VPC_ID --cidr-block 172.31.96.0/20 --availability-zone us-east-1a \
+  --tag-specifications "$(tags subnet logos-private-a)" --query Subnet.SubnetId --output text)
+SUBNET_B=$(aws ec2 create-subnet --vpc-id $VPC_ID --cidr-block 172.31.112.0/20 --availability-zone us-east-1b \
+  --tag-specifications "$(tags subnet logos-private-b)" --query Subnet.SubnetId --output text)
+
+RTB=$(aws ec2 create-route-table --vpc-id $VPC_ID --tag-specifications "$(tags route-table logos-private)" \
+  --query RouteTable.RouteTableId --output text)
+aws ec2 associate-route-table --route-table-id $RTB --subnet-id $SUBNET_A
+aws ec2 associate-route-table --route-table-id $RTB --subnet-id $SUBNET_B
+```
+
+Security groups: o da EC2 nasce sem nenhuma entrada (a porta 80 para o CloudFront é liberada na etapa 3), e o do banco aceita a porta 5432 apenas a partir do security group da EC2.
+
+```bash
+SG_EC2=$(aws ec2 create-security-group --group-name logos-ec2 --description "Logos API host: HTTP only from CloudFront" \
+  --vpc-id $VPC_ID --tag-specifications "$(tags security-group logos-ec2)" --query GroupId --output text)
+SG_RDS=$(aws ec2 create-security-group --group-name logos-rds --description "Logos database: PostgreSQL only from the API host" \
+  --vpc-id $VPC_ID --tag-specifications "$(tags security-group logos-rds)" --query GroupId --output text)
+aws ec2 authorize-security-group-ingress --group-id $SG_RDS --protocol tcp --port 5432 --source-group $SG_EC2
+```
+
+Banco PostgreSQL 18, sem acesso público, com disco criptografado e proteção contra exclusão. A senha é lida do SSM dentro do próprio comando.
+
+> Contas no plano gratuito da AWS aceitam no máximo 1 dia de retenção de backup (`FreeTierRestrictionError` com valores maiores).
+
+```bash
+aws rds create-db-subnet-group --db-subnet-group-name logos-db-subnets --db-subnet-group-description "Logos private subnets" \
+  --subnet-ids $SUBNET_A $SUBNET_B --tags Key=Project,Value=logos
+
+aws rds create-db-instance \
+  --db-instance-identifier logos-db \
+  --engine postgres --engine-version 18.6 --auto-minor-version-upgrade \
+  --db-instance-class db.t4g.micro --no-multi-az \
+  --storage-type gp3 --allocated-storage 20 --storage-encrypted \
+  --db-name logos --master-username logos \
+  --master-user-password "$(aws ssm get-parameter --name /logos/db-password --with-decryption --query Parameter.Value --output text)" \
+  --db-subnet-group-name logos-db-subnets --vpc-security-group-ids $SG_RDS --no-publicly-accessible \
+  --backup-retention-period 1 --copy-tags-to-snapshot --deletion-protection \
+  --tags Key=Project,Value=logos
+
+aws rds wait db-instance-available --db-instance-identifier logos-db
+```
+
+URL de conexão da API, montada a partir do endpoint e da senha e gravada no SSM, também sem aparecer no terminal. O `sslmode=require` obriga a conexão cifrada até o RDS.
+
+```bash
+DB_HOST=$(aws rds describe-db-instances --db-instance-identifier logos-db --query 'DBInstances[0].Endpoint.Address' --output text)
+aws ssm put-parameter --name /logos/database-url --type SecureString --tags Key=Project,Value=logos \
+  --value "postgresql+psycopg://logos:$(aws ssm get-parameter --name /logos/db-password --with-decryption --query Parameter.Value --output text)@$DB_HOST:5432/logos?sslmode=require"
+```
+
+Verificação: o banco não pode ter endpoint público.
+
+```bash
+aws rds describe-db-instances --db-instance-identifier logos-db \
+  --query 'DBInstances[0].[DBInstanceStatus,PubliclyAccessible,DBSubnetGroup.Subnets[].SubnetIdentifier]'
+```
