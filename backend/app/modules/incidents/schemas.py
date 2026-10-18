@@ -49,3 +49,14 @@ class IncidentDetail(BaseModel):
     version: int
     created_at: datetime
     updated_at: datetime
+
+
+class VersionedRequest(BaseModel):
+    """Every change to an incident carries the version the user saw, so concurrent changes are detected (ADR-02)."""
+
+    version: int
+
+
+class IncidentConflict(BaseModel):
+    detail: str
+    current: IncidentDetail

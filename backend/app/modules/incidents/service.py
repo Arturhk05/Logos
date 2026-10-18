@@ -116,9 +116,6 @@ class IncidentService:
 
     def assume(self, incident_id: int, actor: User, expected_version: int) -> Incident:
         """Make `actor` responsible for an open incident."""
-        if actor.role not in CENTRAL_ROLES:
-            raise PermissionDeniedError("Apenas analistas e supervisores podem assumir incidentes.")
-
         incident = self.get(incident_id)
         self._ensure_unchanged(incident, expected_version)
         if incident.status is not IncidentStatus.OPEN or incident.assignee_id is not None:

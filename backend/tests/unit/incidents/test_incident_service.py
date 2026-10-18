@@ -37,14 +37,6 @@ def test_central_user_assumes_open_incident(driver: User, role: UserRole) -> Non
     assert assumed.version == 2
 
 
-def test_driver_cannot_assume_incident(driver: User) -> None:
-    incident = build_incident(driver)
-    service = IncidentService(InMemoryIncidentRepository(incident))
-
-    with pytest.raises(PermissionDeniedError):
-        service.assume(incident.id, driver, expected_version=1)
-
-
 def test_cannot_assume_incident_that_already_has_an_assignee(driver: User, analyst: User) -> None:
     incident = build_incident(driver, status=IncidentStatus.INVESTIGATING, assignee_id=analyst.id)
     service = IncidentService(InMemoryIncidentRepository(incident))

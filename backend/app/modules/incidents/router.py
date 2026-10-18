@@ -1,19 +1,30 @@
-from typing import Annotated
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, status
+from fastapi.responses import JSONResponse
 
 from app.modules.auth.dependencies import CurrentUser, require_role
 from app.modules.incidents.dependencies import get_incident_service
 from app.modules.incidents.enums import Criticality, IncidentCategory
-from app.modules.incidents.schemas import IncidentDetail, IncidentQueueResponse
+from app.modules.incidents.schemas import IncidentConflict, IncidentDetail, IncidentQueueResponse, VersionedRequest
 from app.modules.incidents.service import IncidentService
 from app.modules.users.enums import UserRole
 from app.modules.users.models import User
+from app.shared.errors import ConflictError
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
 CentralUser = Annotated[User, Depends(require_role(UserRole.ANALYST, UserRole.SUPERVISOR))]
 Service = Annotated[IncidentService, Depends(get_incident_service)]
+
+CONFLICT_RESPONSES: dict[int | str, dict[str, Any]] = {status.HTTP_409_CONFLICT: {"model": IncidentConflict}}
+
+
+def _conflict_response(error: ConflictError) -> JSONResponse:
+    # Built here rather than in the global handler: `shared` cannot import this module's schemas,
+    # and serializing the ORM object directly would leak fields such as password_hash.
+    body = IncidentConflict(detail=error.message, current=IncidentDetail.model_validate(error.current))
+    return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=body.model_dump(mode="json"))
 
 
 @router.get("", response_model=IncidentQueueResponse)
@@ -30,3 +41,12 @@ def list_active_incidents(
 @router.get("/{incident_id}", response_model=IncidentDetail)
 def get_incident(incident_id: int, user: CurrentUser, service: Service) -> IncidentDetail:
     return IncidentDetail.model_validate(service.get_visible_to(incident_id, user))
+
+
+@router.post("/{incident_id}/assume", response_model=IncidentDetail, responses=CONFLICT_RESPONSES)
+def assume_incident(incident_id: int, request: VersionedRequest, user: CentralUser, service: Service) -> IncidentDetail | JSONResponse:
+    try:
+        incident = service.assume(incident_id, user, request.version)
+    except ConflictError as error:
+        return _conflict_response(error)
+    return IncidentDetail.model_validate(incident)
