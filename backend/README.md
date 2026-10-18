@@ -16,7 +16,7 @@ app/
     ├── health/
     ├── incidents/
     └── users/
-scripts/               # comandos executados fora da API (ex.: seed dos usuários de demonstração)
+scripts/               # comandos executados fora da API (ex.: seed dos dados de demonstração)
 ```
 
 Um módulo pode depender de `shared` e de outros módulos, mas `shared` nunca depende de um módulo.
@@ -64,7 +64,7 @@ Sobe a API e o PostgreSQL, sem precisar do uv nem do Python instalados. Execute 
 | `docker compose down` | Para os containers, mantendo os dados |
 | `docker compose down -v` | Para os containers e **apaga todos os dados** |
 
-A subida segue esta ordem: o banco fica saudável, o serviço `migrate` aplica as migrations (`alembic upgrade head`), cria os usuários de demonstração que faltarem e termina, e só então a API sobe. Se alguma migration ou o seed falhar, a API não é iniciada (`docker compose logs migrate` mostra o erro).
+A subida segue esta ordem: o banco fica saudável, o serviço `migrate` aplica as migrations (`alembic upgrade head`), cria os usuários de demonstração que faltarem, cria os incidentes de exemplo se ainda não houver nenhum e termina, e só então a API sobe. Se alguma migration ou o seed falhar, a API não é iniciada (`docker compose logs migrate` mostra o erro).
 
 ## Executar para desenvolvimento
 
@@ -74,7 +74,7 @@ Sobe apenas o banco no Docker e a API localmente, com recarga automática ao sal
 docker compose up -d db                   # na raiz do repositório: sobe só o PostgreSQL
 uv sync                                   # instala as dependências
 uv run alembic upgrade head               # cria ou atualiza as tabelas no banco
-uv run python -m scripts.seed             # cria os usuários de demonstração (pode rodar de novo sem duplicar)
+uv run python -m scripts.seed             # cria os usuários e incidentes de demonstração (pode rodar de novo sem duplicar)
 uv run uvicorn app.main:app --reload      # sobe a API em http://localhost:8000
 ```
 
@@ -96,6 +96,11 @@ Criados pelo seed, tanto no Docker quanto no ambiente de desenvolvimento. Todos 
 | `lucas` | Analista (para demonstrar dois analistas disputando o mesmo incidente) |
 | `roberto` | Supervisor |
 | `jose` | Motorista |
+| `maria`, `antonio`, `paulo` | Motoristas (reportantes dos incidentes de exemplo) |
+
+## Incidentes de exemplo
+
+O seed também cria 140 incidentes, com o mesmo conteúdo em todos os ambientes e datas relativas ao momento em que ele roda: 100 ativos na fila (65 _Abertos_ e 35 _Em Investigação_), como os "100 incidentes simultâneos" do desafio, e 40 encerrados no histórico (28 _Fechados_ e 12 _Inconclusivos_). Eles só são criados quando não existe nenhum incidente, então o seed nunca altera nem duplica incidentes que já estejam em uso. Para recriá-los no Docker local, apague os dados com `docker compose down -v`.
 
 ## Qualidade de código
 
