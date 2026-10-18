@@ -5,7 +5,7 @@ from uuid import UUID
 
 from app.modules.incidents.enums import Criticality, IncidentCategory, IncidentStatus
 from app.modules.incidents.models import Incident
-from app.modules.incidents.repository import IncidentChanges, IncidentFilter, IncidentRepository
+from app.modules.incidents.repository import IncidentChanges, IncidentFilter, IncidentOrder, IncidentRepository
 from app.modules.users.enums import UserRole
 from app.modules.users.models import User
 from app.shared.errors import BusinessRuleError, ConflictError, NotFoundError, PermissionDeniedError
@@ -103,6 +103,10 @@ class IncidentService:
             if (not criticalities or incident.criticality in criticalities) and (not categories or incident.category in categories)
         ]
         return IncidentQueue(items=sorted(selected, key=lambda incident: incident.criticality.priority), counts=counts)
+
+    def list_reported_by(self, reporter: User) -> list[Incident]:
+        """Return every incident `reporter` reported, in any status, from the newest to the oldest."""
+        return self._repository.search(IncidentFilter(reporter_id=reporter.id, order=IncidentOrder.NEWEST_FIRST))
 
     def report(self, reporter: User, report: IncidentReport) -> Incident:
         """Register a new incident reported by a driver. It starts open and without an assignee.

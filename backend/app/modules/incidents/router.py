@@ -11,6 +11,7 @@ from app.modules.incidents.schemas import (
     IncidentConflict,
     IncidentDetail,
     IncidentQueueResponse,
+    IncidentSummary,
     ReportIncidentRequest,
     StatusChangeRequest,
     VersionedRequest,
@@ -61,12 +62,12 @@ def report_incident(
     return IncidentDetail.model_validate(service.report(user, report))
 
 
-@router.get("/{incident_id}", response_model=IncidentDetail)
+@router.get("/{incident_id:int}", response_model=IncidentDetail)
 def get_incident(incident_id: int, user: CurrentUser, service: Service) -> IncidentDetail:
     return IncidentDetail.model_validate(service.get_visible_to(incident_id, user))
 
 
-@router.post("/{incident_id}/assume", response_model=IncidentDetail, responses=CONFLICT_RESPONSES)
+@router.post("/{incident_id:int}/assume", response_model=IncidentDetail, responses=CONFLICT_RESPONSES)
 def assume_incident(incident_id: int, request: VersionedRequest, user: CentralUser, service: Service) -> IncidentDetail | JSONResponse:
     try:
         incident = service.assume(incident_id, user, request.version)
@@ -75,7 +76,7 @@ def assume_incident(incident_id: int, request: VersionedRequest, user: CentralUs
     return IncidentDetail.model_validate(incident)
 
 
-@router.patch("/{incident_id}/status", response_model=IncidentDetail, responses=CONFLICT_RESPONSES)
+@router.patch("/{incident_id:int}/status", response_model=IncidentDetail, responses=CONFLICT_RESPONSES)
 def change_incident_status(
     incident_id: int, request: StatusChangeRequest, user: CentralUser, service: Service
 ) -> IncidentDetail | JSONResponse:
@@ -84,3 +85,8 @@ def change_incident_status(
     except ConflictError as error:
         return _conflict_response(error)
     return IncidentDetail.model_validate(incident)
+
+
+@router.get("/mine", response_model=list[IncidentSummary])
+def list_my_incidents(user: DriverUser, service: Service) -> list[IncidentSummary]:
+    return [IncidentSummary.model_validate(incident) for incident in service.list_reported_by(user)]

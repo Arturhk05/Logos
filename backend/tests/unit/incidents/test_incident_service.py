@@ -400,3 +400,13 @@ def test_driver_cannot_see_incident_of_another_driver(driver: User) -> None:
 def test_visible_incident_that_does_not_exist_is_not_found(analyst: User) -> None:
     with pytest.raises(NotFoundError):
         IncidentService(InMemoryIncidentRepository()).get_visible_to(999, analyst)
+
+
+def test_driver_lists_own_incidents_newest_first(driver: User) -> None:
+    closed_at_8 = build_incident(driver, status=CLOSED, created_at=_at(8))
+    at_10 = build_incident(driver, created_at=_at(10))
+    at_9 = build_incident(driver, created_at=_at(9))
+    from_another_driver = build_incident(build_user(UserRole.DRIVER), created_at=_at(11))
+    service = IncidentService(InMemoryIncidentRepository(closed_at_8, at_10, at_9, from_another_driver))
+
+    assert service.list_reported_by(driver) == [at_10, at_9, closed_at_8]

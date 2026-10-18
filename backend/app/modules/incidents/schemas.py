@@ -13,7 +13,7 @@ class UserSummary(BaseModel):
     username: str
 
 
-class IncidentQueueItem(BaseModel):
+class IncidentSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -28,7 +28,7 @@ class IncidentQueueItem(BaseModel):
 class IncidentQueueResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    items: list[IncidentQueueItem]
+    items: list[IncidentSummary]
     counts: dict[Criticality, int]
 
 
