@@ -266,3 +266,57 @@ gh run watch
 ```
 
 > Com uma instância só, a API fica alguns segundos indisponível durante a troca de containers. Também não há volta automática: se a versão nova não ficar saudável, a API fica fora do ar até um novo deploy. Para voltar, reverta o commit na `main` e faça push (o papel de deploy só aceita a branch `main`).
+
+## 5. Domínio, HTTPS e CloudFront
+
+Certificado do ACM para o domínio, validado por DNS. O ACM informa um registro `CNAME` que precisa ser criado no provedor DNS do domínio (Hostinger) e **mantido**: ele também é usado nas renovações automáticas.
+
+```bash
+CERT_ARN=$(aws acm request-certificate --domain-name logos.arturkrauspenhar.com.br --validation-method DNS \
+  --tags Key=Project,Value=logos --query CertificateArn --output text)
+aws acm describe-certificate --certificate-arn $CERT_ARN \
+  --query 'Certificate.DomainValidationOptions[0].ResourceRecord'   # criar este CNAME na Hostinger
+aws acm wait certificate-validated --certificate-arn $CERT_ARN
+```
+
+> Na Hostinger, o campo **Nome** recebe só a parte antes do domínio (por exemplo, `_03a6....logos`), e o destino vai sem o ponto final.
+
+Bucket privado para o frontend (por enquanto, só a [página provisória](../infra/frontend-placeholder/index.html)), acessível apenas pelo CloudFront via OAC:
+
+```bash
+BUCKET=logos-frontend-$ACCOUNT_ID
+aws s3api create-bucket --bucket $BUCKET
+aws s3api put-public-access-block --bucket $BUCKET \
+  --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+aws s3api put-bucket-tagging --bucket $BUCKET --tagging 'TagSet=[{Key=Project,Value=logos}]'
+aws s3 cp infra/frontend-placeholder/index.html s3://$BUCKET/index.html --content-type "text/html; charset=utf-8" --cache-control no-cache
+
+OAC_ID=$(aws cloudfront create-origin-access-control --origin-access-control-config \
+  'Name=logos-frontend-oac,SigningProtocol=sigv4,SigningBehavior=always,OriginAccessControlOriginType=s3' \
+  --query OriginAccessControl.Id --output text)
+```
+
+Distribuição do CloudFront ([configuração](../infra/cloudfront-distribution.json)):
+
+| Rota | Origem | Configuração |
+|---|---|---|
+| `/*` | S3, via OAC | cache `CachingOptimized`; HTTP é redirecionado para HTTPS |
+| `/api/*` | EC2 (DNS do Elastic IP), porta 80 | sem cache (`CachingDisabled`), repassa cookies e cabeçalhos (`AllViewerExceptHostHeader`), todos os métodos, **só HTTPS** (um redirecionamento perderia o corpo de um `POST`) |
+
+```bash
+API_ORIGIN=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].PublicDnsName' --output text)
+config=$(sed -e "s|CALLER_REFERENCE|logos-$(date +%Y%m%d%H%M%S)|" -e "s|BUCKET|$BUCKET|" -e "s|OAC_ID|$OAC_ID|" \
+  -e "s|API_ORIGIN|$API_ORIGIN|" -e "s|CERTIFICATE_ARN|$CERT_ARN|" infra/cloudfront-distribution.json)
+DISTRIBUTION_ID=$(aws cloudfront create-distribution-with-tags --distribution-config-with-tags "$config" \
+  --query Distribution.Id --output text)
+
+policy=$(sed -e "s|BUCKET|$BUCKET|" -e "s|ACCOUNT_ID|$ACCOUNT_ID|" -e "s|DISTRIBUTION_ID|$DISTRIBUTION_ID|" infra/s3-oac-bucket-policy.json)
+aws s3api put-bucket-policy --bucket $BUCKET --policy "$policy"
+
+aws cloudfront wait distribution-deployed --id $DISTRIBUTION_ID
+aws cloudfront get-distribution --id $DISTRIBUTION_ID --query Distribution.DomainName --output text
+```
+
+Por fim, no provedor DNS: `CNAME` de `logos` para o domínio `*.cloudfront.net` da distribuição.
+
+> **Trecho sem criptografia:** o HTTPS termina no CloudFront, e o CloudFront fala com a EC2 em HTTP. Esse trecho leva o cookie de sessão e o corpo do login sem cifra. A EC2 só aceita conexões do CloudFront, e os dois estão em `us-east-1`, mas o tráfego entre eles não é cifrado. É uma decisão consciente para o MVP: cifrar até a origem exigiria um certificado público na EC2 (Let's Encrypt, com validação que esbarra no isolamento da porta 80) ou um load balancer com certificado do ACM (cerca de US$ 18/mês).
