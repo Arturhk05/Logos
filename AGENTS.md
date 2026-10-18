@@ -41,6 +41,7 @@ app/
 
 - Modules may import from `shared` and from other modules; `shared` never imports from a module.
 - **Business rules live only in `service.py`.** Models describe data; enums hold values and intrinsic properties (e.g. `Criticality.priority`).
+- **Permissions (ADR-06):** a rule that depends only on the role goes on the route with `require_role(...)`; a rule that depends on the data (e.g. assignee, reporter) stays in the service, which receives the `CurrentUser`. Never check the same rule in both layers.
 - **Repositories only access data.** They are declared as a `Protocol` and implemented with SQLAlchemy; services depend on the protocol.
 - The database only enforces value validity through `enum_check` (enums are `native_enum=False` VARCHAR columns). Do not add CHECK constraints for business rules.
 - Services raise `app.shared.errors` (`NotFoundError`, `PermissionDeniedError`, `BusinessRuleError`, `ConflictError`), which the API layer must map to 404/403/422/409. Their messages are shown to end users, so they are written in Portuguese and without technical terms.
