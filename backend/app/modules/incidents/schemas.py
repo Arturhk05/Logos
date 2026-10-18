@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, StringConstraints
 
 from app.modules.incidents.enums import Criticality, IncidentCategory, IncidentStatus
 
@@ -55,6 +56,11 @@ class VersionedRequest(BaseModel):
     """Every change to an incident carries the version the user saw, so concurrent changes are detected (ADR-02)."""
 
     version: int
+
+
+class StatusChangeRequest(VersionedRequest):
+    status: IncidentStatus
+    reason: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
 
 
 class IncidentConflict(BaseModel):

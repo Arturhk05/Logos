@@ -6,7 +6,13 @@ from fastapi.responses import JSONResponse
 from app.modules.auth.dependencies import CurrentUser, require_role
 from app.modules.incidents.dependencies import get_incident_service
 from app.modules.incidents.enums import Criticality, IncidentCategory
-from app.modules.incidents.schemas import IncidentConflict, IncidentDetail, IncidentQueueResponse, VersionedRequest
+from app.modules.incidents.schemas import (
+    IncidentConflict,
+    IncidentDetail,
+    IncidentQueueResponse,
+    StatusChangeRequest,
+    VersionedRequest,
+)
 from app.modules.incidents.service import IncidentService
 from app.modules.users.enums import UserRole
 from app.modules.users.models import User
@@ -47,6 +53,17 @@ def get_incident(incident_id: int, user: CurrentUser, service: Service) -> Incid
 def assume_incident(incident_id: int, request: VersionedRequest, user: CentralUser, service: Service) -> IncidentDetail | JSONResponse:
     try:
         incident = service.assume(incident_id, user, request.version)
+    except ConflictError as error:
+        return _conflict_response(error)
+    return IncidentDetail.model_validate(incident)
+
+
+@router.patch("/{incident_id}/status", response_model=IncidentDetail, responses=CONFLICT_RESPONSES)
+def change_incident_status(
+    incident_id: int, request: StatusChangeRequest, user: CentralUser, service: Service
+) -> IncidentDetail | JSONResponse:
+    try:
+        incident = service.change_status(incident_id, user, request.version, request.status, request.reason)
     except ConflictError as error:
         return _conflict_response(error)
     return IncidentDetail.model_validate(incident)

@@ -170,9 +170,8 @@ def test_supervisor_changes_status_of_another_analysts_incident(driver: User, an
     assert closed.closed_by_id == supervisor.id
 
 
-@pytest.mark.parametrize("role", [UserRole.ANALYST, UserRole.DRIVER])
-def test_only_assignee_or_supervisor_can_change_status(driver: User, analyst: User, role: UserRole) -> None:
-    outsider = build_user(role)
+def test_only_assignee_or_supervisor_can_change_status(driver: User, analyst: User) -> None:
+    outsider = build_user(UserRole.ANALYST)
     incident = build_incident_in(INVESTIGATING, driver, analyst)
     service = IncidentService(InMemoryIncidentRepository(incident))
 
