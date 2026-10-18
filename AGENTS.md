@@ -20,7 +20,7 @@ uv sync                                  # install dependencies
 uv run uvicorn app.main:app --reload     # API at http://localhost:8000/api/docs
 uv run pytest                            # all tests
 uv run pytest tests/unit                 # unit tests only (no Docker)
-uv run ruff check . && uv run ruff format --check . && uv run mypy app tests migrations
+uv run ruff check . && uv run ruff format --check . && uv run mypy app tests migrations scripts
 uv run alembic revision --autogenerate -m "description"   # then review the generated file
 uv run alembic upgrade head
 ```

@@ -22,7 +22,7 @@ services:
   migrate:
     build: ./backend
     image: logos-api
-    command: ["alembic", "upgrade", "head"]
+    command: ["sh", "-c", "alembic upgrade head && python -m scripts.seed"]
     environment: *backend-environment
     depends_on:
       db:

@@ -12,9 +12,11 @@ app/
 ├── router.py          # reúne as rotas de todos os módulos sob /api
 ├── shared/            # código usado por todos os módulos (configuração, banco de dados, erros de domínio)
 └── modules/           # um pacote por área do negócio
+    ├── auth/
     ├── health/
     ├── incidents/
     └── users/
+scripts/               # comandos executados fora da API (ex.: seed dos usuários de demonstração)
 ```
 
 Um módulo pode depender de `shared` e de outros módulos, mas `shared` nunca depende de um módulo.
@@ -62,7 +64,7 @@ Sobe a API e o PostgreSQL, sem precisar do uv nem do Python instalados. Execute 
 | `docker compose down` | Para os containers, mantendo os dados |
 | `docker compose down -v` | Para os containers e **apaga todos os dados** |
 
-A subida segue esta ordem: o banco fica saudável, o serviço `migrate` aplica as migrations (`alembic upgrade head`) e termina, e só então a API sobe. Se alguma migration falhar, a API não é iniciada (`docker compose logs migrate` mostra o erro).
+A subida segue esta ordem: o banco fica saudável, o serviço `migrate` aplica as migrations (`alembic upgrade head`), cria os usuários de demonstração que faltarem e termina, e só então a API sobe. Se alguma migration ou o seed falhar, a API não é iniciada (`docker compose logs migrate` mostra o erro).
 
 ## Executar para desenvolvimento
 
@@ -72,6 +74,7 @@ Sobe apenas o banco no Docker e a API localmente, com recarga automática ao sal
 docker compose up -d db                   # na raiz do repositório: sobe só o PostgreSQL
 uv sync                                   # instala as dependências
 uv run alembic upgrade head               # cria ou atualiza as tabelas no banco
+uv run python -m scripts.seed             # cria os usuários de demonstração (pode rodar de novo sem duplicar)
 uv run uvicorn app.main:app --reload      # sobe a API em http://localhost:8000
 ```
 
@@ -83,6 +86,17 @@ Se a API do Docker estiver rodando, pare-a antes (`docker compose stop api`), po
 | http://localhost:8000/api/docs | Documentação interativa (Swagger) |
 | http://localhost:8000/api/openapi.json | Especificação OpenAPI |
 
+## Usuários de demonstração
+
+Criados pelo seed, tanto no Docker quanto no ambiente de desenvolvimento. Todos usam a senha `logos123`:
+
+| Usuário | Papel |
+|---|---|
+| `camila` | Analista |
+| `lucas` | Analista (para demonstrar dois analistas disputando o mesmo incidente) |
+| `roberto` | Supervisor |
+| `jose` | Motorista |
+
 ## Qualidade de código
 
 | Comando | O que faz |
@@ -91,7 +105,7 @@ Se a API do Docker estiver rodando, pare-a antes (`docker compose stop api`), po
 | `uv run ruff check . --fix` | Lint, corrigindo automaticamente o que for possível |
 | `uv run ruff format .` | Formata o código |
 | `uv run ruff format --check .` | Verifica a formatação sem alterar arquivos |
-| `uv run mypy app tests migrations` | Verificação de tipos (modo strict) |
+| `uv run mypy app tests migrations scripts` | Verificação de tipos (modo strict) |
 
 ## Migrations do banco de dados
 
