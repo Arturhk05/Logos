@@ -319,4 +319,86 @@ aws cloudfront get-distribution --id $DISTRIBUTION_ID --query Distribution.Domai
 
 Por fim, no provedor DNS: `CNAME` de `logos` para o domínio `*.cloudfront.net` da distribuição.
 
-> **Trecho sem criptografia:** o HTTPS termina no CloudFront, e o CloudFront fala com a EC2 em HTTP. Esse trecho leva o cookie de sessão e o corpo do login sem cifra. A EC2 só aceita conexões do CloudFront, e os dois estão em `us-east-1`, mas o tráfego entre eles não é cifrado. É uma decisão consciente para o MVP: cifrar até a origem exigiria um certificado público na EC2 (Let's Encrypt, com validação que esbarra no isolamento da porta 80) ou um load balancer com certificado do ACM (cerca de US$ 18/mês).
+> **Trecho sem criptografia ([ADR-07](adr/ADR-07-http-entre-cloudfront-e-api.md)):** o HTTPS termina no CloudFront, e o CloudFront fala com a EC2 em HTTP. Esse trecho leva o cookie de sessão e o corpo do login sem cifra. A EC2 só aceita conexões do CloudFront, e os dois estão em `us-east-1`, mas o tráfego entre eles não é cifrado. É uma decisão consciente para o MVP: cifrar até a origem exigiria um certificado público na EC2 (Let's Encrypt, com validação que esbarra no isolamento da porta 80) ou um load balancer com certificado do ACM (cerca de US$ 18/mês).
+
+## 6. Verificação
+
+```bash
+D=https://logos.arturkrauspenhar.com.br
+curl -i $D/api/health                                   # 200 {"status":"ok"}
+curl -i -c cookies.txt -X POST $D/api/auth/login -H "Content-Type: application/json" \
+  -d '{"username":"camila","password":"logos123"}'      # 200 e Set-Cookie: HttpOnly; Secure; SameSite=strict; Path=/api; Max-Age=28800
+curl -b cookies.txt $D/api/me                           # 200: o cookie passou pelo CloudFront até a API
+curl -i $D/api/me                                       # 401 sem o cookie
+curl -i http://logos.arturkrauspenhar.com.br/           # 301 para HTTPS
+curl -i http://logos.arturkrauspenhar.com.br/api/health # 403: a API só aceita HTTPS
+curl --max-time 5 http://<elastic-ip>/api/health        # timeout: a EC2 só aceita o CloudFront
+rm cookies.txt
+```
+
+No navegador, em `$D/api/docs`, fazer o login pelo Swagger (`POST /api/auth/login`) e depois chamar `GET /api/me`, que deve responder 200 sem nenhuma configuração extra.
+
+## Remover tudo
+
+Ao fim da avaliação, na ordem abaixo (cada recurso depende dos seguintes). Antes, recupere as variáveis do início deste documento.
+
+```bash
+# 1. CloudFront: desativar, esperar, apagar; depois o OAC, o bucket e o certificado
+DISTRIBUTION_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?Aliases.Items[0]=='logos.arturkrauspenhar.com.br'].Id" --output text)
+aws cloudfront get-distribution-config --id $DISTRIBUTION_ID > dist.json
+ETAG=$(python -c "import json; print(json.load(open('dist.json'))['ETag'])")
+python -c "import json; d=json.load(open('dist.json'))['DistributionConfig']; d['Enabled']=False; json.dump(d, open('dist-config.json','w'))"
+aws cloudfront update-distribution --id $DISTRIBUTION_ID --if-match $ETAG --distribution-config file://dist-config.json
+aws cloudfront wait distribution-deployed --id $DISTRIBUTION_ID
+aws cloudfront delete-distribution --id $DISTRIBUTION_ID \
+  --if-match $(aws cloudfront get-distribution --id $DISTRIBUTION_ID --query ETag --output text)
+rm dist.json dist-config.json
+OAC_ID=$(aws cloudfront list-origin-access-controls --query "OriginAccessControlList.Items[?Name=='logos-frontend-oac'].Id" --output text)
+aws cloudfront delete-origin-access-control --id $OAC_ID \
+  --if-match $(aws cloudfront get-origin-access-control --id $OAC_ID --query ETag --output text)
+aws s3 rb s3://logos-frontend-$ACCOUNT_ID --force
+aws acm delete-certificate --certificate-arn $(aws acm list-certificates \
+  --query "CertificateSummaryList[?DomainName=='logos.arturkrauspenhar.com.br'].CertificateArn" --output text)
+# Na Hostinger: apagar o CNAME "logos" e o de validação do ACM.
+
+# 2. Deploy automático
+gh variable delete AWS_ACCOUNT_ID && gh variable delete EC2_INSTANCE_ID
+aws iam delete-role-policy --role-name logos-github-deploy --policy-name logos-deploy
+aws iam delete-role --role-name logos-github-deploy
+aws iam delete-open-id-connect-provider \
+  --open-id-connect-provider-arn arn:aws:iam::$ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com
+
+# 3. EC2 (desligando antes a proteção contra encerramento), Elastic IP e papel da instância
+aws ec2 modify-instance-attribute --instance-id $INSTANCE_ID --no-disable-api-termination
+aws ec2 terminate-instances --instance-ids $INSTANCE_ID
+aws ec2 wait instance-terminated --instance-ids $INSTANCE_ID
+aws ec2 release-address --allocation-id $(aws ec2 describe-addresses \
+  --filters Name=tag:Project,Values=logos --query 'Addresses[0].AllocationId' --output text)
+aws iam remove-role-from-instance-profile --instance-profile-name logos-ec2-profile --role-name logos-ec2-role
+aws iam delete-instance-profile --instance-profile-name logos-ec2-profile
+aws iam detach-role-policy --role-name logos-ec2-role --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+aws iam detach-role-policy --role-name logos-ec2-role --policy-arn arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly
+aws iam delete-role --role-name logos-ec2-role
+
+# 4. Banco (desligando antes a proteção contra exclusão; sem snapshot final, que teria custo de armazenamento)
+aws rds modify-db-instance --db-instance-identifier logos-db --no-deletion-protection --apply-immediately
+aws rds delete-db-instance --db-instance-identifier logos-db --skip-final-snapshot --delete-automated-backups
+aws rds wait db-instance-deleted --db-instance-identifier logos-db
+aws rds delete-db-subnet-group --db-subnet-group-name logos-db-subnets
+
+# 5. Rede: security groups (o do banco referencia o da EC2), subnets privadas e route table
+aws ec2 delete-security-group --group-id $SG_RDS
+aws ec2 delete-security-group --group-id $SG_EC2
+for subnet in $(aws ec2 describe-subnets --filters Name=tag:Project,Values=logos --query 'Subnets[].SubnetId' --output text); do
+  aws ec2 delete-subnet --subnet-id $subnet
+done
+aws ec2 delete-route-table --route-table-id $(aws ec2 describe-route-tables \
+  --filters Name=tag:Name,Values=logos-private --query 'RouteTables[0].RouteTableId' --output text)
+
+# 6. Segredos, imagens e orçamento
+aws ssm delete-parameters --names /logos/jwt-secret /logos/db-password /logos/database-url
+aws ecr delete-repository --repository-name logos-api --force
+aws budgets delete-budget --account-id $ACCOUNT_ID --budget-name logos-monthly
+```
+
+Por último, no console: apagar a access key do usuário `logos-admin` (ou o próprio usuário) e conferir no **Tag Editor**, com a tag `Project=logos`, que não sobrou nenhum recurso.
