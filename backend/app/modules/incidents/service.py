@@ -5,7 +5,7 @@ from uuid import UUID
 
 from app.modules.incidents.enums import Criticality, IncidentCategory, IncidentStatus
 from app.modules.incidents.models import Incident
-from app.modules.incidents.repository import IncidentChanges, IncidentRepository
+from app.modules.incidents.repository import IncidentChanges, IncidentFilter, IncidentRepository
 from app.modules.users.enums import UserRole
 from app.modules.users.models import User
 from app.shared.errors import BusinessRuleError, ConflictError, NotFoundError, PermissionDeniedError
@@ -92,7 +92,7 @@ class IncidentService:
         An empty filter means no filter. Counts ignore the filters, so the central always sees
         how many active incidents exist of each criticality.
         """
-        active = self._repository.list_by_status([status for status in IncidentStatus if status.is_active])
+        active = self._repository.search(IncidentFilter(statuses=[status for status in IncidentStatus if status.is_active]))
         counts = {criticality: 0 for criticality in Criticality}
         for incident in active:
             counts[incident.criticality] += 1

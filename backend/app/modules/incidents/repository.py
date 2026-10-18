@@ -1,13 +1,15 @@
 from collections.abc import Collection
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol, TypedDict
+from enum import Enum
+from typing import Any, Protocol, TypedDict
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import ColumnElement, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from app.modules.incidents.enums import IncidentStatus
+from app.modules.incidents.enums import Criticality, IncidentCategory, IncidentStatus
 from app.modules.incidents.models import Incident
 
 
@@ -19,6 +21,25 @@ class IncidentChanges(TypedDict, total=False):
     closed_by_id: int | None
     closed_at: datetime | None
     closure_reason: str | None
+
+
+class IncidentOrder(Enum):
+    OLDEST_FIRST = "oldest_first"
+    NEWEST_FIRST = "newest_first"
+    RECENTLY_CLOSED_FIRST = "recently_closed_first"
+
+
+@dataclass(frozen=True)
+class IncidentFilter:
+    """Which incidents to search for. An empty collection or None means no filter on that field."""
+
+    statuses: Collection[IncidentStatus] = ()
+    criticalities: Collection[Criticality] = ()
+    categories: Collection[IncidentCategory] = ()
+    reporter_id: int | None = None
+    order: IncidentOrder = IncidentOrder.OLDEST_FIRST
+    offset: int = 0
+    limit: int | None = None
 
 
 class IncidentRepository(Protocol):
@@ -34,8 +55,15 @@ class IncidentRepository(Protocol):
         """Return the current state of the incident, or None if it does not exist."""
         ...
 
-    def list_by_status(self, statuses: Collection[IncidentStatus]) -> list[Incident]:
-        """Return the incidents in any of `statuses`, from the oldest to the newest, with their assignee loaded."""
+    def search(self, criteria: IncidentFilter) -> list[Incident]:
+        """Return the incidents matching `criteria`, in its order and page, with assignee and closed_by loaded.
+
+        Ties in the order are broken by id, in the same direction.
+        """
+        ...
+
+    def count(self, criteria: IncidentFilter) -> int:
+        """Return how many incidents match `criteria`, ignoring its order and page."""
         ...
 
     def update_if_version(self, incident_id: int, expected_version: int, changes: IncidentChanges) -> Incident | None:
@@ -68,14 +96,20 @@ class SqlAlchemyIncidentRepository:
     def get(self, incident_id: int) -> Incident | None:
         return self._session.get(Incident, incident_id, populate_existing=True)
 
-    def list_by_status(self, statuses: Collection[IncidentStatus]) -> list[Incident]:
+    def search(self, criteria: IncidentFilter) -> list[Incident]:
         statement = (
             select(Incident)
-            .where(Incident.status.in_(statuses))
-            .order_by(Incident.created_at, Incident.id)
-            .options(selectinload(Incident.assignee))
+            .where(*_conditions(criteria))
+            .order_by(*_ORDER_BY[criteria.order])
+            .offset(criteria.offset)
+            .limit(criteria.limit)
+            .options(selectinload(Incident.assignee), selectinload(Incident.closed_by))
         )
         return list(self._session.scalars(statement))
+
+    def count(self, criteria: IncidentFilter) -> int:
+        statement = select(func.count()).select_from(Incident).where(*_conditions(criteria))
+        return self._session.scalars(statement).one()
 
     def update_if_version(self, incident_id: int, expected_version: int, changes: IncidentChanges) -> Incident | None:
         statement = (
@@ -93,3 +127,23 @@ class SqlAlchemyIncidentRepository:
             return None
         statement = select(Incident).where(Incident.reporter_id == reporter_id, Incident.idempotency_key == key)
         return self._session.scalars(statement).one_or_none()
+
+
+_ORDER_BY: dict[IncidentOrder, tuple[ColumnElement[Any], ...]] = {
+    IncidentOrder.OLDEST_FIRST: (Incident.created_at.asc(), Incident.id.asc()),
+    IncidentOrder.NEWEST_FIRST: (Incident.created_at.desc(), Incident.id.desc()),
+    IncidentOrder.RECENTLY_CLOSED_FIRST: (Incident.closed_at.desc(), Incident.id.desc()),
+}
+
+
+def _conditions(criteria: IncidentFilter) -> list[ColumnElement[bool]]:
+    conditions: list[ColumnElement[bool]] = []
+    if criteria.statuses:
+        conditions.append(Incident.status.in_(criteria.statuses))
+    if criteria.criticalities:
+        conditions.append(Incident.criticality.in_(criteria.criticalities))
+    if criteria.categories:
+        conditions.append(Incident.category.in_(criteria.categories))
+    if criteria.reporter_id is not None:
+        conditions.append(Incident.reporter_id == criteria.reporter_id)
+    return conditions
