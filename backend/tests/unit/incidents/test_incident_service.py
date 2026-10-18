@@ -275,3 +275,114 @@ def test_only_drivers_can_report_incidents(role: UserRole) -> None:
 
     with pytest.raises(PermissionDeniedError):
         service.report(build_user(role), build_report())
+
+
+def _at(hour: int) -> datetime:
+    return datetime(2026, 10, 18, hour, tzinfo=UTC)
+
+
+def test_queue_orders_by_criticality_then_oldest_first(driver: User) -> None:
+    low_08 = build_incident(driver, criticality=Criticality.LOW, created_at=_at(8))
+    high_10 = build_incident(driver, criticality=Criticality.HIGH, created_at=_at(10))
+    medium_07 = build_incident(driver, criticality=Criticality.MEDIUM, created_at=_at(7))
+    high_09 = build_incident(driver, criticality=Criticality.HIGH, created_at=_at(9))
+    medium_11 = build_incident(driver, criticality=Criticality.MEDIUM, created_at=_at(11))
+    service = IncidentService(InMemoryIncidentRepository(low_08, high_10, medium_07, high_09, medium_11))
+
+    queue = service.list_active()
+
+    assert queue.items == [high_09, high_10, medium_07, medium_11, low_08]
+
+
+def test_queue_excludes_closed_and_inconclusive(driver: User) -> None:
+    open_incident = build_incident(driver, criticality=Criticality.HIGH, status=OPEN, created_at=_at(8))
+    investigating = build_incident(driver, criticality=Criticality.HIGH, status=INVESTIGATING, created_at=_at(9))
+    closed = build_incident(driver, criticality=Criticality.HIGH, status=CLOSED, created_at=_at(7))
+    inconclusive = build_incident(driver, criticality=Criticality.HIGH, status=INCONCLUSIVE, created_at=_at(6))
+    service = IncidentService(InMemoryIncidentRepository(open_incident, investigating, closed, inconclusive))
+
+    assert service.list_active().items == [open_incident, investigating]
+    assert service.list_active(criticalities={Criticality.HIGH}).items == [open_incident, investigating]
+
+
+def test_queue_filters_by_several_criticalities(driver: User) -> None:
+    high = build_incident(driver, criticality=Criticality.HIGH, created_at=_at(8))
+    medium = build_incident(driver, criticality=Criticality.MEDIUM, created_at=_at(9))
+    low = build_incident(driver, criticality=Criticality.LOW, created_at=_at(10))
+    service = IncidentService(InMemoryIncidentRepository(high, medium, low))
+
+    assert service.list_active(criticalities={Criticality.HIGH, Criticality.LOW}).items == [high, low]
+
+
+def test_queue_filters_by_several_categories(driver: User) -> None:
+    blockage = build_incident(driver, category=IncidentCategory.ROAD_BLOCKAGE, created_at=_at(8))
+    weather = build_incident(driver, category=IncidentCategory.ADVERSE_WEATHER, created_at=_at(9))
+    mechanical = build_incident(driver, category=IncidentCategory.MECHANICAL_PROBLEM, created_at=_at(10))
+    service = IncidentService(InMemoryIncidentRepository(blockage, weather, mechanical))
+
+    queue = service.list_active(categories={IncidentCategory.ROAD_BLOCKAGE, IncidentCategory.MECHANICAL_PROBLEM})
+
+    assert queue.items == [blockage, mechanical]
+
+
+def test_queue_combines_criticality_and_category_filters(driver: User) -> None:
+    high_blockage = build_incident(driver, criticality=Criticality.HIGH, category=IncidentCategory.ROAD_BLOCKAGE, created_at=_at(8))
+    low_blockage = build_incident(driver, criticality=Criticality.LOW, category=IncidentCategory.ROAD_BLOCKAGE, created_at=_at(9))
+    high_weather = build_incident(driver, criticality=Criticality.HIGH, category=IncidentCategory.ADVERSE_WEATHER, created_at=_at(10))
+    service = IncidentService(InMemoryIncidentRepository(high_blockage, low_blockage, high_weather))
+
+    queue = service.list_active(criticalities={Criticality.HIGH}, categories={IncidentCategory.ROAD_BLOCKAGE})
+
+    assert queue.items == [high_blockage]
+
+
+def test_queue_counts_ignore_filters(driver: User) -> None:
+    incidents = [
+        build_incident(driver, criticality=Criticality.HIGH, created_at=_at(8)),
+        build_incident(driver, criticality=Criticality.HIGH, created_at=_at(9)),
+        build_incident(driver, criticality=Criticality.LOW, created_at=_at(10)),
+        build_incident(driver, criticality=Criticality.HIGH, status=CLOSED, created_at=_at(7)),
+    ]
+    service = IncidentService(InMemoryIncidentRepository(*incidents))
+
+    queue = service.list_active(criticalities={Criticality.LOW})
+
+    assert len(queue.items) == 1
+    assert queue.counts == {Criticality.HIGH: 2, Criticality.MEDIUM: 0, Criticality.LOW: 1}
+
+
+def test_queue_counts_include_every_criticality_even_when_zero() -> None:
+    queue = IncidentService(InMemoryIncidentRepository()).list_active()
+
+    assert queue.items == []
+    assert queue.counts == {Criticality.HIGH: 0, Criticality.MEDIUM: 0, Criticality.LOW: 0}
+
+
+@pytest.mark.parametrize("role", [UserRole.ANALYST, UserRole.SUPERVISOR])
+def test_central_user_sees_any_incident(driver: User, role: UserRole) -> None:
+    incident = build_incident(driver)
+    service = IncidentService(InMemoryIncidentRepository(incident))
+
+    assert service.get_visible_to(incident.id, build_user(role)) is incident
+
+
+def test_driver_sees_own_incident(driver: User) -> None:
+    incident = build_incident(driver)
+    service = IncidentService(InMemoryIncidentRepository(incident))
+
+    assert service.get_visible_to(incident.id, driver) is incident
+
+
+def test_driver_cannot_see_incident_of_another_driver(driver: User) -> None:
+    incident = build_incident(driver)
+    service = IncidentService(InMemoryIncidentRepository(incident))
+
+    with pytest.raises(NotFoundError) as error:
+        service.get_visible_to(incident.id, build_user(UserRole.DRIVER))
+
+    assert error.value.message == "Incidente não encontrado."
+
+
+def test_visible_incident_that_does_not_exist_is_not_found(analyst: User) -> None:
+    with pytest.raises(NotFoundError):
+        IncidentService(InMemoryIncidentRepository()).get_visible_to(999, analyst)

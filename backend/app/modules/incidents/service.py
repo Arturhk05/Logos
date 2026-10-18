@@ -1,3 +1,4 @@
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -11,6 +12,7 @@ from app.shared.errors import BusinessRuleError, ConflictError, NotFoundError, P
 CENTRAL_ROLES = frozenset({UserRole.ANALYST, UserRole.SUPERVISOR})
 
 CONFLICT_MESSAGE = "Este incidente foi alterado por outra pessoa. Confira o estado atual."
+NOT_FOUND_MESSAGE = "Incidente não encontrado."
 
 ALLOWED_TRANSITIONS: dict[IncidentStatus, frozenset[IncidentStatus]] = {
     IncidentStatus.OPEN: frozenset({IncidentStatus.INVESTIGATING}),
@@ -49,6 +51,14 @@ class IncidentReport:
     criticality: Criticality | None = None
 
 
+@dataclass(frozen=True)
+class IncidentQueue:
+    """Active incidents to show, plus how many active incidents exist of each criticality."""
+
+    items: list[Incident]
+    counts: dict[Criticality, int]
+
+
 class IncidentService:
     def __init__(self, repository: IncidentRepository) -> None:
         self._repository = repository
@@ -56,8 +66,38 @@ class IncidentService:
     def get(self, incident_id: int) -> Incident:
         incident = self._repository.get(incident_id)
         if incident is None:
-            raise NotFoundError("Incidente não encontrado.")
+            raise NotFoundError(NOT_FOUND_MESSAGE)
         return incident
+
+    def get_visible_to(self, incident_id: int, viewer: User) -> Incident:
+        """Return the incident if `viewer` may see it: the central sees all, a driver only the ones they reported."""
+        incident = self.get(incident_id)
+        if viewer.role not in CENTRAL_ROLES and incident.reporter_id != viewer.id:
+            # Same answer as a missing incident, so drivers cannot find out which ids exist.
+            raise NotFoundError(NOT_FOUND_MESSAGE)
+        return incident
+
+    def list_active(
+        self,
+        criticalities: Collection[Criticality] = (),
+        categories: Collection[IncidentCategory] = (),
+    ) -> IncidentQueue:
+        """Return the operational queue, most critical first and oldest first within the same criticality.
+
+        An empty filter means no filter. Counts ignore the filters, so the central always sees
+        how many active incidents exist of each criticality.
+        """
+        active = self._repository.list_by_status([status for status in IncidentStatus if status.is_active])
+        counts = {criticality: 0 for criticality in Criticality}
+        for incident in active:
+            counts[incident.criticality] += 1
+
+        selected = [
+            incident
+            for incident in active
+            if (not criticalities or incident.criticality in criticalities) and (not categories or incident.category in categories)
+        ]
+        return IncidentQueue(items=sorted(selected, key=lambda incident: incident.criticality.priority), counts=counts)
 
     def report(self, reporter: User, report: IncidentReport) -> Incident:
         """Register a new incident reported by a driver. It starts open and without an assignee."""
