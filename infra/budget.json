@@ -1,0 +1,6 @@
+{
+  "BudgetName": "logos-monthly",
+  "BudgetLimit": { "Amount": "30", "Unit": "USD" },
+  "BudgetType": "COST",
+  "TimeUnit": "MONTHLY"
+}
