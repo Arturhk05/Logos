@@ -8,14 +8,25 @@ O código é organizado por módulos: cada módulo reúne tudo de uma área do n
 
 ```
 app/
-├── main.py        # cria a aplicação FastAPI
-├── router.py      # reúne as rotas de todos os módulos sob /api
-├── shared/        # código usado por todos os módulos (configuração, banco de dados)
-└── modules/       # um pacote por área do negócio
-    └── health/
+├── main.py            # cria a aplicação FastAPI
+├── router.py          # reúne as rotas de todos os módulos sob /api
+├── shared/            # código usado por todos os módulos (configuração, banco de dados, erros de domínio)
+└── modules/           # um pacote por área do negócio
+    ├── health/
+    ├── incidents/
+    └── users/
 ```
 
 Um módulo pode depender de `shared` e de outros módulos, mas `shared` nunca depende de um módulo.
+
+Dentro de cada módulo, as responsabilidades ficam separadas em camadas:
+
+| Arquivo | Responsabilidade |
+|---|---|
+| `enums.py` | Valores fixos do domínio (categoria, criticidade, status, papel) |
+| `models.py` | Tabelas do banco de dados (SQLAlchemy) |
+| `repository.py` | Acesso aos dados, sem regras de negócio |
+| `service.py` | Regras de negócio, que usam o repository |
 
 ## Pré-requisitos
 
@@ -49,6 +60,8 @@ Sobe a API e o PostgreSQL, sem precisar do uv nem do Python instalados. Execute 
 | `docker compose down` | Para os containers, mantendo os dados |
 | `docker compose down -v` | Para os containers e **apaga todos os dados** |
 
+A subida segue esta ordem: o banco fica saudável, o serviço `migrate` aplica as migrations (`alembic upgrade head`) e termina, e só então a API sobe. Se alguma migration falhar, a API não é iniciada (`docker compose logs migrate` mostra o erro).
+
 ## Executar para desenvolvimento
 
 Sobe apenas o banco no Docker e a API localmente, com recarga automática ao salvar arquivos:
@@ -56,6 +69,7 @@ Sobe apenas o banco no Docker e a API localmente, com recarga automática ao sal
 ```bash
 docker compose up -d db                   # na raiz do repositório: sobe só o PostgreSQL
 uv sync                                   # instala as dependências
+uv run alembic upgrade head               # cria ou atualiza as tabelas no banco
 uv run uvicorn app.main:app --reload      # sobe a API em http://localhost:8000
 ```
 
