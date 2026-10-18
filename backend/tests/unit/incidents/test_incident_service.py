@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from itertools import product
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -194,9 +195,17 @@ def test_change_status_with_outdated_version_raises_conflict(driver: User, analy
 
 
 def build_report(
-    category: IncidentCategory = IncidentCategory.MECHANICAL_PROBLEM, criticality: Criticality | None = None
+    category: IncidentCategory = IncidentCategory.MECHANICAL_PROBLEM,
+    criticality: Criticality | None = None,
+    idempotency_key: UUID | None = None,
 ) -> IncidentReport:
-    return IncidentReport(category=category, location="BR-116, km 230", description="Pneu furado no acostamento", criticality=criticality)
+    return IncidentReport(
+        category=category,
+        location="BR-116, km 230",
+        description="Pneu furado no acostamento",
+        idempotency_key=idempotency_key or uuid4(),
+        criticality=criticality,
+    )
 
 
 def test_driver_reports_incident_that_starts_open_without_assignee(driver: User) -> None:
@@ -260,12 +269,26 @@ def test_accident_with_victims_accepts_high_criticality(driver: User) -> None:
     assert incident.criticality is Criticality.HIGH
 
 
-@pytest.mark.parametrize("role", [UserRole.ANALYST, UserRole.SUPERVISOR])
-def test_only_drivers_can_report_incidents(role: UserRole) -> None:
+def test_reporting_twice_with_the_same_key_returns_the_first_incident(driver: User) -> None:
     service = IncidentService(InMemoryIncidentRepository())
+    key = uuid4()
+    first = service.report(driver, build_report(idempotency_key=key))
 
-    with pytest.raises(PermissionDeniedError):
-        service.report(build_user(role), build_report())
+    second = service.report(driver, build_report(idempotency_key=key))
+
+    assert second is first
+
+
+def test_same_key_from_another_driver_creates_another_incident(driver: User) -> None:
+    service = IncidentService(InMemoryIncidentRepository())
+    other_driver = build_user(UserRole.DRIVER)
+    key = uuid4()
+    first = service.report(driver, build_report(idempotency_key=key))
+
+    other = service.report(other_driver, build_report(idempotency_key=key))
+
+    assert other.id != first.id
+    assert other.reporter_id == other_driver.id
 
 
 def _at(hour: int) -> datetime:

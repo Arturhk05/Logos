@@ -1,8 +1,10 @@
 from collections.abc import Collection
 from datetime import datetime
 from typing import Protocol, TypedDict
+from uuid import UUID
 
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.modules.incidents.enums import IncidentStatus
@@ -21,7 +23,11 @@ class IncidentChanges(TypedDict, total=False):
 
 class IncidentRepository(Protocol):
     def add(self, incident: Incident) -> Incident:
-        """Persist a new incident and return it with its generated fields (id, version, timestamps)."""
+        """Persist a new incident and return it with its generated fields (id, version, timestamps).
+
+        If its reporter already has an incident with the same idempotency key, nothing is inserted
+        and that incident is returned instead.
+        """
         ...
 
     def get(self, incident_id: int) -> Incident | None:
@@ -45,8 +51,17 @@ class SqlAlchemyIncidentRepository:
         self._session = session
 
     def add(self, incident: Incident) -> Incident:
-        self._session.add(incident)
-        self._session.flush()
+        try:
+            with self._session.begin_nested():
+                self._session.add(incident)
+                self._session.flush()
+        except IntegrityError:
+            # The key was already used: a retry, or a concurrent request that committed first (the insert waits for it).
+            # Under READ COMMITTED, PostgreSQL's default, the lookup below sees that committed incident.
+            existing = self._find_by_idempotency_key(incident.reporter_id, incident.idempotency_key)
+            if existing is None:
+                raise
+            return existing
         self._session.refresh(incident)
         return incident
 
@@ -71,4 +86,10 @@ class SqlAlchemyIncidentRepository:
             # RETURNING refreshes the columns but not relationships already loaded in the session (e.g. a stale assignee).
             .execution_options(populate_existing=True)
         )
+        return self._session.scalars(statement).one_or_none()
+
+    def _find_by_idempotency_key(self, reporter_id: int, key: UUID | None) -> Incident | None:
+        if key is None:
+            return None
+        statement = select(Incident).where(Incident.reporter_id == reporter_id, Incident.idempotency_key == key)
         return self._session.scalars(statement).one_or_none()

@@ -1,8 +1,9 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from threading import Barrier
+from uuid import UUID, uuid4
 
-from sqlalchemy import Engine, delete
+from sqlalchemy import Engine, delete, func, select
 from sqlalchemy.orm import Session
 
 from app.modules.incidents.enums import Criticality, IncidentCategory, IncidentStatus
@@ -165,3 +166,69 @@ def test_list_by_status_breaks_ties_by_id(db_session: Session) -> None:
     listed = SqlAlchemyIncidentRepository(db_session).list_by_status({IncidentStatus.OPEN})
 
     assert [incident.id for incident in listed] == [first.id, second.id]
+
+
+def _report(reporter: User, key: UUID) -> Incident:
+    return Incident(
+        category=IncidentCategory.MECHANICAL_PROBLEM,
+        criticality=Criticality.MEDIUM,
+        status=IncidentStatus.OPEN,
+        location="BR-116, km 230",
+        description="Pneu furado no acostamento",
+        reporter_id=reporter.id,
+        idempotency_key=key,
+    )
+
+
+def test_add_with_repeated_idempotency_key_returns_the_existing_incident(db_session: Session) -> None:
+    driver = create_user(db_session, UserRole.DRIVER)
+    repository = SqlAlchemyIncidentRepository(db_session)
+    key = uuid4()
+    first = repository.add(_report(driver, key))
+
+    second = repository.add(_report(driver, key))
+
+    assert second.id == first.id
+
+
+def test_same_idempotency_key_from_another_reporter_creates_another_incident(db_session: Session) -> None:
+    first_driver = create_user(db_session, UserRole.DRIVER)
+    second_driver = create_user(db_session, UserRole.DRIVER)
+    repository = SqlAlchemyIncidentRepository(db_session)
+    key = uuid4()
+
+    first = repository.add(_report(first_driver, key))
+    second = repository.add(_report(second_driver, key))
+
+    assert second.id != first.id
+    assert (first.reporter_id, second.reporter_id) == (first_driver.id, second_driver.id)
+    assert db_session.scalar(select(func.count()).select_from(Incident).where(Incident.idempotency_key == key)) == 2
+
+
+def test_simultaneous_reports_with_the_same_key_create_one_incident(database_engine: Engine) -> None:
+    """Each request uses its own connection and transaction; the unique key makes the late ones find the first incident."""
+    requests_count = 5
+    key = uuid4()
+
+    with Session(database_engine, expire_on_commit=False) as setup:
+        driver = create_user(setup, UserRole.DRIVER)
+        setup.commit()
+
+    start_together = Barrier(requests_count, timeout=10)
+
+    def report() -> int:
+        with Session(database_engine) as session, session.begin():
+            start_together.wait()
+            return SqlAlchemyIncidentRepository(session).add(_report(driver, key)).id
+
+    try:
+        with ThreadPoolExecutor(max_workers=requests_count) as executor:
+            ids = list(executor.map(lambda _: report(), range(requests_count)))
+
+        assert len(set(ids)) == 1
+        with Session(database_engine) as check:
+            assert check.scalar(select(func.count()).select_from(Incident).where(Incident.idempotency_key == key)) == 1
+    finally:
+        with Session(database_engine) as cleanup, cleanup.begin():
+            cleanup.execute(delete(Incident).where(Incident.reporter_id == driver.id))
+            cleanup.execute(delete(User).where(User.id == driver.id))

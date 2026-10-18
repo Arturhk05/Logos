@@ -1,6 +1,7 @@
 from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from uuid import UUID
 
 from app.modules.incidents.enums import Criticality, IncidentCategory, IncidentStatus
 from app.modules.incidents.models import Incident
@@ -43,11 +44,15 @@ STATUS_LABELS = {
 
 @dataclass(frozen=True)
 class IncidentReport:
-    """Data a driver provides when reporting an incident. Without a criticality, the suggested one is used."""
+    """Data a driver provides when reporting an incident. Without a criticality, the suggested one is used.
+
+    The idempotency key identifies the report attempt, so retrying it does not create a second incident.
+    """
 
     category: IncidentCategory
     location: str
     description: str
+    idempotency_key: UUID
     criticality: Criticality | None = None
 
 
@@ -100,10 +105,10 @@ class IncidentService:
         return IncidentQueue(items=sorted(selected, key=lambda incident: incident.criticality.priority), counts=counts)
 
     def report(self, reporter: User, report: IncidentReport) -> Incident:
-        """Register a new incident reported by a driver. It starts open and without an assignee."""
-        if reporter.role is not UserRole.DRIVER:
-            raise PermissionDeniedError("Apenas motoristas podem reportar incidentes.")
+        """Register a new incident reported by a driver. It starts open and without an assignee.
 
+        Repeating a report with the same idempotency key returns the incident created the first time.
+        """
         incident = Incident(
             category=report.category,
             criticality=self._resolve_criticality(report.category, report.criticality),
@@ -111,6 +116,7 @@ class IncidentService:
             location=report.location,
             description=report.description,
             reporter_id=reporter.id,
+            idempotency_key=report.idempotency_key,
         )
         return self._repository.add(incident)
 

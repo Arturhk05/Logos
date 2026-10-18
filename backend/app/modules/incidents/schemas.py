@@ -63,6 +63,13 @@ class StatusChangeRequest(VersionedRequest):
     reason: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
 
 
+class ReportIncidentRequest(BaseModel):
+    category: IncidentCategory
+    criticality: Criticality | None = None
+    location: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+    description: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
+
+
 class IncidentConflict(BaseModel):
     detail: str
     current: IncidentDetail

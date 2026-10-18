@@ -13,6 +13,10 @@ class InMemoryIncidentRepository:
         self._incidents = {incident.id: incident for incident in incidents}
 
     def add(self, incident: Incident) -> Incident:
+        if incident.idempotency_key is not None:
+            for existing in self._incidents.values():
+                if (existing.reporter_id, existing.idempotency_key) == (incident.reporter_id, incident.idempotency_key):
+                    return existing
         incident.id = max(self._incidents, default=0) + 1
         incident.version = 1
         self._incidents[incident.id] = incident

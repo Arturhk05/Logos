@@ -1,6 +1,7 @@
 from typing import Annotated, Any
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Header, Query, status
 from fastapi.responses import JSONResponse
 
 from app.modules.auth.dependencies import CurrentUser, require_role
@@ -10,10 +11,11 @@ from app.modules.incidents.schemas import (
     IncidentConflict,
     IncidentDetail,
     IncidentQueueResponse,
+    ReportIncidentRequest,
     StatusChangeRequest,
     VersionedRequest,
 )
-from app.modules.incidents.service import IncidentService
+from app.modules.incidents.service import IncidentReport, IncidentService
 from app.modules.users.enums import UserRole
 from app.modules.users.models import User
 from app.shared.errors import ConflictError
@@ -21,6 +23,7 @@ from app.shared.errors import ConflictError
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
 CentralUser = Annotated[User, Depends(require_role(UserRole.ANALYST, UserRole.SUPERVISOR))]
+DriverUser = Annotated[User, Depends(require_role(UserRole.DRIVER))]
 Service = Annotated[IncidentService, Depends(get_incident_service)]
 
 CONFLICT_RESPONSES: dict[int | str, dict[str, Any]] = {status.HTTP_409_CONFLICT: {"model": IncidentConflict}}
@@ -42,6 +45,20 @@ def list_active_incidents(
 ) -> IncidentQueueResponse:
     queue = service.list_active(criticality or (), category or ())
     return IncidentQueueResponse.model_validate(queue)
+
+
+@router.post("", response_model=IncidentDetail, status_code=status.HTTP_201_CREATED)
+def report_incident(
+    request: ReportIncidentRequest, idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")], user: DriverUser, service: Service
+) -> IncidentDetail:
+    report = IncidentReport(
+        category=request.category,
+        location=request.location,
+        description=request.description,
+        idempotency_key=idempotency_key,
+        criticality=request.criticality,
+    )
+    return IncidentDetail.model_validate(service.report(user, report))
 
 
 @router.get("/{incident_id}", response_model=IncidentDetail)
