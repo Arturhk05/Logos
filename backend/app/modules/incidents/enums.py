@@ -8,6 +8,20 @@ class IncidentCategory(StrEnum):
     MECHANICAL_PROBLEM = "MECHANICAL_PROBLEM"
     ROAD_BLOCKAGE = "ROAD_BLOCKAGE"
 
+    @property
+    def label(self) -> str:
+        """Name shown to users."""
+        return _CATEGORY_LABELS[self]
+
+
+_CATEGORY_LABELS = {
+    IncidentCategory.VEHICLE_ACCIDENT: "Acidente com Veículo",
+    IncidentCategory.ACCIDENT_WITH_VICTIMS: "Acidente com Vítimas",
+    IncidentCategory.ADVERSE_WEATHER: "Condição Climática Atípica na Pista",
+    IncidentCategory.MECHANICAL_PROBLEM: "Problema Mecânico",
+    IncidentCategory.ROAD_BLOCKAGE: "Bloqueio de Pista",
+}
+
 
 class Criticality(StrEnum):
     HIGH = "HIGH"

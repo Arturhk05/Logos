@@ -57,6 +57,29 @@ class IncidentReport:
 
 
 @dataclass(frozen=True)
+class CategoryOption:
+    """A category the driver can choose, with the criticality the form suggests for it."""
+
+    category: IncidentCategory
+    label: str
+    suggested_criticality: Criticality
+    criticality_locked: bool
+
+
+def category_options() -> list[CategoryOption]:
+    """Return every category with its suggested criticality, in declaration order."""
+    return [
+        CategoryOption(
+            category=category,
+            label=category.label,
+            suggested_criticality=SUGGESTED_CRITICALITY[category],
+            criticality_locked=category in FIXED_CRITICALITY_CATEGORIES,
+        )
+        for category in IncidentCategory
+    ]
+
+
+@dataclass(frozen=True)
 class IncidentQueue:
     """Active incidents to show, plus how many active incidents exist of each criticality."""
 

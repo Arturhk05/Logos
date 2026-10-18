@@ -8,6 +8,7 @@ from app.modules.auth.dependencies import CurrentUser, require_role
 from app.modules.incidents.dependencies import get_incident_service
 from app.modules.incidents.enums import Criticality, IncidentCategory, IncidentStatus
 from app.modules.incidents.schemas import (
+    CategoryOptionResponse,
     IncidentConflict,
     IncidentDetail,
     IncidentHistoryResponse,
@@ -17,12 +18,13 @@ from app.modules.incidents.schemas import (
     StatusChangeRequest,
     VersionedRequest,
 )
-from app.modules.incidents.service import IncidentReport, IncidentService
+from app.modules.incidents.service import IncidentReport, IncidentService, category_options
 from app.modules.users.enums import UserRole
 from app.modules.users.models import User
 from app.shared.errors import ConflictError
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
+categories_router = APIRouter(prefix="/categories", tags=["categories"])
 
 CentralUser = Annotated[User, Depends(require_role(UserRole.ANALYST, UserRole.SUPERVISOR))]
 DriverUser = Annotated[User, Depends(require_role(UserRole.DRIVER))]
@@ -107,3 +109,8 @@ def list_incident_history(
 ) -> IncidentHistoryResponse:
     history = service.list_closed(page, page_size, statuses or (), criticality or (), category or ())
     return IncidentHistoryResponse.model_validate(history)
+
+
+@categories_router.get("", response_model=list[CategoryOptionResponse])
+def list_categories(_: CurrentUser) -> list[CategoryOptionResponse]:
+    return [CategoryOptionResponse.model_validate(option) for option in category_options()]

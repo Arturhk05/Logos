@@ -7,7 +7,7 @@ import pytest
 from app.modules.incidents.enums import Criticality, IncidentCategory, IncidentStatus
 from app.modules.incidents.models import Incident
 from app.modules.incidents.repository import IncidentChanges
-from app.modules.incidents.service import SUGGESTED_CRITICALITY, IncidentReport, IncidentService
+from app.modules.incidents.service import SUGGESTED_CRITICALITY, IncidentReport, IncidentService, category_options
 from app.modules.users.enums import UserRole
 from app.modules.users.models import User
 from app.shared.errors import BusinessRuleError, ConflictError, NotFoundError, PermissionDeniedError
@@ -488,3 +488,12 @@ def test_history_puts_incidents_without_closing_time_last(driver: User) -> None:
     page = service.list_closed(page=1, page_size=20)
 
     assert page.items == [closed_at_9, second_without_time, first_without_time]
+
+
+# --- categories --------------------------------------------------------------
+
+
+def test_only_accident_with_victims_has_locked_criticality() -> None:
+    locked = {option.category for option in category_options() if option.criticality_locked}
+
+    assert locked == {IncidentCategory.ACCIDENT_WITH_VICTIMS}

@@ -87,3 +87,12 @@ class ReportIncidentRequest(BaseModel):
 class IncidentConflict(BaseModel):
     detail: str
     current: IncidentDetail
+
+
+class CategoryOptionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    category: IncidentCategory
+    label: str
+    suggested_criticality: Criticality
+    criticality_locked: bool
