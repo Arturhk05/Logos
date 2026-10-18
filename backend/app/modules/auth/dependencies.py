@@ -3,21 +3,20 @@ from datetime import timedelta
 from typing import Annotated
 
 from fastapi import Cookie, Depends
-from sqlalchemy.orm import Session
 
 from app.modules.auth.service import AuthService
 from app.modules.users.enums import UserRole
 from app.modules.users.models import User
 from app.modules.users.repository import SqlAlchemyUserRepository
 from app.shared.config import get_settings
-from app.shared.db.session import get_session
+from app.shared.db.session import SessionDep
 from app.shared.errors import PermissionDeniedError
 
 SESSION_COOKIE = "access_token"
 FORBIDDEN_MESSAGE = "Você não tem permissão para realizar esta ação."
 
 
-def get_auth_service(session: Annotated[Session, Depends(get_session)]) -> AuthService:
+def get_auth_service(session: SessionDep) -> AuthService:
     settings = get_settings()
     return AuthService(
         SqlAlchemyUserRepository(session),

@@ -1,6 +1,8 @@
 from collections.abc import Iterator
 from functools import lru_cache
+from typing import Annotated
 
+from fastapi import Depends
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -31,3 +33,8 @@ def get_session_factory() -> sessionmaker[Session]:
 def get_session() -> Iterator[Session]:
     with get_session_factory().begin() as session:
         yield session
+
+
+# "function" scope commits before the response is sent; the default would commit after it,
+# so a failed commit would still reach the client as a success.
+SessionDep = Annotated[Session, Depends(get_session, scope="function")]
