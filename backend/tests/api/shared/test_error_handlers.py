@@ -43,6 +43,7 @@ def test_domain_error_is_returned_with_its_status_and_message(error: DomainError
 def production(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Without debug mode, Starlette uses the 500 handler instead of rendering the traceback."""
     monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("JWT_SECRET", "p" * 32)
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

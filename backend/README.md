@@ -47,6 +47,8 @@ cp .env.example .env
 |---|---|---|
 | `ENVIRONMENT` | Ambiente de execução: `development`, `test` ou `production` | `development` |
 | `DATABASE_URL` | URL de conexão com o PostgreSQL | `postgresql+psycopg://logos:logos@localhost:5432/logos` |
+| `JWT_SECRET` | Segredo que assina os tokens de sessão. Obrigatório em produção, com pelo menos 32 caracteres | segredo fixo, aceito só fora de produção |
+| `ACCESS_TOKEN_LIFETIME_MINUTES` | Validade da sessão, em minutos | `480` (8 horas) |
 
 ## Executar com Docker
 
