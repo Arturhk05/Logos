@@ -3,10 +3,10 @@ from itertools import product
 
 import pytest
 
-from app.modules.incidents.enums import IncidentStatus
+from app.modules.incidents.enums import Criticality, IncidentCategory, IncidentStatus
 from app.modules.incidents.models import Incident
 from app.modules.incidents.repository import IncidentChanges
-from app.modules.incidents.service import IncidentService
+from app.modules.incidents.service import SUGGESTED_CRITICALITY, IncidentReport, IncidentService
 from app.modules.users.enums import UserRole
 from app.modules.users.models import User
 from app.shared.errors import BusinessRuleError, ConflictError, NotFoundError, PermissionDeniedError
@@ -197,3 +197,81 @@ def test_change_status_with_outdated_version_raises_conflict(driver: User, analy
         service.change_status(incident.id, analyst, expected_version=1, target=CLOSED, reason="Motivo")
 
     assert error.value.current.status is OPEN
+
+
+# --- report ------------------------------------------------------------------
+
+
+def build_report(
+    category: IncidentCategory = IncidentCategory.MECHANICAL_PROBLEM, criticality: Criticality | None = None
+) -> IncidentReport:
+    return IncidentReport(category=category, location="BR-116, km 230", description="Pneu furado no acostamento", criticality=criticality)
+
+
+def test_driver_reports_incident_that_starts_open_without_assignee(driver: User) -> None:
+    service = IncidentService(InMemoryIncidentRepository())
+
+    incident = service.report(driver, build_report())
+
+    assert incident.id is not None
+    assert incident.status is IncidentStatus.OPEN
+    assert incident.assignee_id is None
+    assert incident.reporter_id == driver.id
+    assert incident.location == "BR-116, km 230"
+    assert incident.version == 1
+
+
+@pytest.mark.parametrize(
+    ("category", "suggested"),
+    [
+        (IncidentCategory.ACCIDENT_WITH_VICTIMS, Criticality.HIGH),
+        (IncidentCategory.VEHICLE_ACCIDENT, Criticality.HIGH),
+        (IncidentCategory.ROAD_BLOCKAGE, Criticality.MEDIUM),
+        (IncidentCategory.ADVERSE_WEATHER, Criticality.MEDIUM),
+        (IncidentCategory.MECHANICAL_PROBLEM, Criticality.MEDIUM),
+    ],
+)
+def test_report_without_criticality_uses_the_suggestion_for_the_category(
+    driver: User, category: IncidentCategory, suggested: Criticality
+) -> None:
+    service = IncidentService(InMemoryIncidentRepository())
+
+    incident = service.report(driver, build_report(category))
+
+    assert incident.criticality is suggested
+
+
+def test_every_category_has_a_suggested_criticality() -> None:
+    assert set(SUGGESTED_CRITICALITY) == set(IncidentCategory)
+
+
+def test_driver_can_override_the_suggested_criticality(driver: User) -> None:
+    service = IncidentService(InMemoryIncidentRepository())
+
+    incident = service.report(driver, build_report(IncidentCategory.MECHANICAL_PROBLEM, Criticality.HIGH))
+
+    assert incident.criticality is Criticality.HIGH
+
+
+@pytest.mark.parametrize("criticality", [Criticality.MEDIUM, Criticality.LOW])
+def test_accident_with_victims_cannot_be_reported_below_high(driver: User, criticality: Criticality) -> None:
+    service = IncidentService(InMemoryIncidentRepository())
+
+    with pytest.raises(BusinessRuleError):
+        service.report(driver, build_report(IncidentCategory.ACCIDENT_WITH_VICTIMS, criticality))
+
+
+def test_accident_with_victims_accepts_high_criticality(driver: User) -> None:
+    service = IncidentService(InMemoryIncidentRepository())
+
+    incident = service.report(driver, build_report(IncidentCategory.ACCIDENT_WITH_VICTIMS, Criticality.HIGH))
+
+    assert incident.criticality is Criticality.HIGH
+
+
+@pytest.mark.parametrize("role", [UserRole.ANALYST, UserRole.SUPERVISOR])
+def test_only_drivers_can_report_incidents(role: UserRole) -> None:
+    service = IncidentService(InMemoryIncidentRepository())
+
+    with pytest.raises(PermissionDeniedError):
+        service.report(build_user(role), build_report())

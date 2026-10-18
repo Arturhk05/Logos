@@ -19,6 +19,10 @@ class IncidentChanges(TypedDict, total=False):
 
 
 class IncidentRepository(Protocol):
+    def add(self, incident: Incident) -> Incident:
+        """Persist a new incident and return it with its generated fields (id, version, timestamps)."""
+        ...
+
     def get(self, incident_id: int) -> Incident | None:
         """Return the current state of the incident, or None if it does not exist."""
         ...
@@ -34,6 +38,12 @@ class IncidentRepository(Protocol):
 class SqlAlchemyIncidentRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
+
+    def add(self, incident: Incident) -> Incident:
+        self._session.add(incident)
+        self._session.flush()
+        self._session.refresh(incident)
+        return incident
 
     def get(self, incident_id: int) -> Incident | None:
         return self._session.get(Incident, incident_id, populate_existing=True)

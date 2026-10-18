@@ -1,6 +1,7 @@
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from app.modules.incidents.enums import IncidentStatus
+from app.modules.incidents.enums import Criticality, IncidentCategory, IncidentStatus
 from app.modules.incidents.models import Incident
 from app.modules.incidents.repository import IncidentChanges, IncidentRepository
 from app.modules.users.enums import UserRole
@@ -20,12 +21,32 @@ ALLOWED_TRANSITIONS: dict[IncidentStatus, frozenset[IncidentStatus]] = {
 
 FINAL_STATUSES = frozenset(status for status, targets in ALLOWED_TRANSITIONS.items() if not targets)
 
+SUGGESTED_CRITICALITY: dict[IncidentCategory, Criticality] = {
+    IncidentCategory.ACCIDENT_WITH_VICTIMS: Criticality.HIGH,
+    IncidentCategory.VEHICLE_ACCIDENT: Criticality.HIGH,
+    IncidentCategory.ROAD_BLOCKAGE: Criticality.MEDIUM,
+    IncidentCategory.ADVERSE_WEATHER: Criticality.MEDIUM,
+    IncidentCategory.MECHANICAL_PROBLEM: Criticality.MEDIUM,
+}
+
+FIXED_CRITICALITY_CATEGORIES = frozenset({IncidentCategory.ACCIDENT_WITH_VICTIMS})
+
 STATUS_LABELS = {
     IncidentStatus.OPEN: "Aberto",
     IncidentStatus.INVESTIGATING: "Em Investigação",
     IncidentStatus.CLOSED: "Fechado",
     IncidentStatus.INCONCLUSIVE: "Inconclusivo",
 }
+
+
+@dataclass(frozen=True)
+class IncidentReport:
+    """Data a driver provides when reporting an incident. Without a criticality, the suggested one is used."""
+
+    category: IncidentCategory
+    location: str
+    description: str
+    criticality: Criticality | None = None
 
 
 class IncidentService:
@@ -37,6 +58,21 @@ class IncidentService:
         if incident is None:
             raise NotFoundError("Incidente não encontrado.")
         return incident
+
+    def report(self, reporter: User, report: IncidentReport) -> Incident:
+        """Register a new incident reported by a driver. It starts open and without an assignee."""
+        if reporter.role is not UserRole.DRIVER:
+            raise PermissionDeniedError("Apenas motoristas podem reportar incidentes.")
+
+        incident = Incident(
+            category=report.category,
+            criticality=self._resolve_criticality(report.category, report.criticality),
+            status=IncidentStatus.OPEN,
+            location=report.location,
+            description=report.description,
+            reporter_id=reporter.id,
+        )
+        return self._repository.add(incident)
 
     def assume(self, incident_id: int, actor: User, expected_version: int) -> Incident:
         """Make `actor` responsible for an open incident."""
@@ -83,6 +119,12 @@ class IncidentService:
             changes |= {"closed_by_id": actor.id, "closed_at": datetime.now(UTC), "closure_reason": reason.strip()}
 
         return self._save(incident_id, expected_version, changes)
+
+    def _resolve_criticality(self, category: IncidentCategory, chosen: Criticality | None) -> Criticality:
+        suggested = SUGGESTED_CRITICALITY[category]
+        if category in FIXED_CRITICALITY_CATEGORIES and chosen not in {None, suggested}:
+            raise BusinessRuleError("Acidentes com vítimas são sempre de criticidade alta.")
+        return chosen or suggested
 
     def _ensure_can_change_status(self, incident: Incident, actor: User) -> None:
         is_supervisor = actor.role is UserRole.SUPERVISOR

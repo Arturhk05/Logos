@@ -4,12 +4,31 @@ from threading import Barrier
 from sqlalchemy import Engine, delete
 from sqlalchemy.orm import Session
 
-from app.modules.incidents.enums import IncidentStatus
+from app.modules.incidents.enums import Criticality, IncidentCategory, IncidentStatus
 from app.modules.incidents.models import Incident
 from app.modules.incidents.repository import SqlAlchemyIncidentRepository
 from app.modules.users.enums import UserRole
 from app.modules.users.models import User
 from tests.factories import create_incident, create_user
+
+
+def test_add_persists_incident_with_generated_fields(db_session: Session) -> None:
+    driver = create_user(db_session, UserRole.DRIVER)
+    incident = Incident(
+        category=IncidentCategory.ROAD_BLOCKAGE,
+        criticality=Criticality.MEDIUM,
+        status=IncidentStatus.OPEN,
+        location="BR-101, km 12",
+        description="Pista bloqueada por queda de barreira",
+        reporter_id=driver.id,
+    )
+
+    added = SqlAlchemyIncidentRepository(db_session).add(incident)
+
+    assert added.id is not None
+    assert added.version == 1
+    assert added.created_at is not None
+    assert SqlAlchemyIncidentRepository(db_session).get(added.id) is not None
 
 
 def test_get_returns_none_for_missing_incident(db_session: Session) -> None:
