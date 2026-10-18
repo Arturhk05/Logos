@@ -229,3 +229,40 @@ Para abrir um terminal na instância, sem SSH (requer o [Session Manager plugin]
 ```bash
 aws ssm start-session --target $INSTANCE_ID
 ```
+
+## 4. Deploy automático (GitHub Actions)
+
+A cada push na `main` que altere `backend/`, o [`deploy-backend.yml`](../.github/workflows/deploy-backend.yml) faz:
+
+1. **test**: ruff, mypy e pytest. Nada sobe se algum falhar.
+2. **build**: constrói a imagem num runner ARM do GitHub (a EC2 é ARM, então não há emulação) e envia ao ECR com a tag do commit.
+3. **deploy**: envia o [`ec2-deploy.sh`](../infra/ec2-deploy.sh) para a EC2 pelo SSM Run Command e espera o resultado. O script monta o `.env` a partir do SSM, roda migrations e seed num container avulso e só então troca o container da API. Se as migrations falharem, a versão anterior continua no ar.
+
+O GitHub não guarda nenhuma chave da AWS: o workflow se autentica por OIDC e assume o papel `logos-github-deploy`, que só aceita a branch `main` deste repositório e só pode enviar imagens ao `logos-api` e comandos à instância da API.
+
+```bash
+aws iam create-open-id-connect-provider --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com --tags Key=Project,Value=logos
+
+fill() { sed -e "s/ACCOUNT_ID/$ACCOUNT_ID/g" -e "s/INSTANCE_ID/$INSTANCE_ID/g" "$1"; }
+aws iam create-role --role-name logos-github-deploy --max-session-duration 3600 --tags Key=Project,Value=logos \
+  --assume-role-policy-document "$(fill infra/github-oidc-trust-policy.json)"
+aws iam put-role-policy --role-name logos-github-deploy --policy-name logos-deploy \
+  --policy-document "$(fill infra/github-deploy-policy.json)"
+```
+
+O workflow lê o ID da conta e o da instância de **variables** do repositório (não são segredos):
+
+```bash
+gh variable set AWS_ACCOUNT_ID --body "$ACCOUNT_ID"
+gh variable set EC2_INSTANCE_ID --body "$INSTANCE_ID"
+```
+
+Para fazer um deploy sem novo commit (por exemplo, depois de trocar um segredo no SSM):
+
+```bash
+gh workflow run deploy-backend.yml
+gh run watch
+```
+
+> Com uma instância só, a API fica alguns segundos indisponível durante a troca de containers. Também não há volta automática: se a versão nova não ficar saudável, a API fica fora do ar até um novo deploy. Para voltar, reverta o commit na `main` e faça push (o papel de deploy só aceita a branch `main`).
