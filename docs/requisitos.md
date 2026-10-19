@@ -284,7 +284,7 @@ _"Quando o meu pneu fura na estrada, eu quero reportar o incidente e acionar a c
 - **Dado** credenciais válidas de analista ou supervisor, **quando** entro no sistema, **então** sou levado à lista de incidentes ativos.
 - **Dado** credenciais válidas de motorista, **quando** entro no sistema, **então** sou levado à tela de reporte (RN-06).
 - **Dado** credenciais inválidas, **quando** tento entrar, **então** vejo uma mensagem de erro, sem indicar se o erro está no usuário ou na senha.
-- **Dado** que errei a senha várias vezes seguidas, **quando** tento entrar novamente, **então** vejo uma mensagem informando quanto tempo devo esperar.
+- **Retirado do escopo do MVP** (RNF-02, [ADR-04](adr/ADR-04-rate-limit.md)). **Dado** que errei a senha várias vezes seguidas, **quando** tento entrar novamente, **então** vejo uma mensagem informando quanto tempo devo esperar.
 - **Dado** que estou no sistema, **quando** clico em "Sair", **então** minha sessão é encerrada e volto à tela de login.
 - **Dado** que minha sessão expirou, **quando** faço qualquer ação, **então** sou levado à tela de login com um aviso de que a sessão expirou.
 - **Dado** que tento acessar uma tela que meu papel não permite, **quando** a página é carregada, **então** sou redirecionado para a minha tela inicial.
