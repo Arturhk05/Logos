@@ -296,17 +296,40 @@ OAC_ID=$(aws cloudfront create-origin-access-control --origin-access-control-con
   --query OriginAccessControl.Id --output text)
 ```
 
+Função do CloudFront que entrega o `index.html` nas rotas do React, como `/fila/123` ([ADR-09](adr/ADR-09-rotas-do-frontend-no-cloudfront.md), [código](../infra/cloudfront-spa-routes.js)). Ela nasce no estágio `DEVELOPMENT`, é testada e só então publicada:
+
+```bash
+aws cloudfront create-function --name logos-spa-routes \
+  --function-config 'Comment=Logos: serve index.html for React routes (ADR-09),Runtime=cloudfront-js-2.0' \
+  --function-code fileb://infra/cloudfront-spa-routes.js
+FUNCTION_ARN=arn:aws:cloudfront::$ACCOUNT_ID:function/logos-spa-routes
+aws cloudfront tag-resource --resource $FUNCTION_ARN --tags 'Items=[{Key=Project,Value=logos}]'
+
+# Rotas viram /index.html; arquivos (com ponto no último trecho) mantêm o caminho; a query string não muda.
+ETAG=$(aws cloudfront describe-function --name logos-spa-routes --stage DEVELOPMENT --query ETag --output text)
+for uri in / /fila/123 /meus-reportes /index.html /assets/index-abc.js; do
+  printf '{"version":"1.0","context":{"eventType":"viewer-request"},"viewer":{"ip":"198.51.100.1"},"request":{"method":"GET","uri":"%s","querystring":{},"headers":{},"cookies":{}}}' "$uri" > event.json
+  echo "$uri -> $(aws cloudfront test-function --name logos-spa-routes --if-match $ETAG --stage DEVELOPMENT \
+    --event-object fileb://event.json --query TestResult.FunctionOutput --output text)"
+done
+rm event.json
+
+aws cloudfront publish-function --name logos-spa-routes \
+  --if-match $(aws cloudfront describe-function --name logos-spa-routes --query ETag --output text)
+```
+
 Distribuição do CloudFront ([configuração](../infra/cloudfront-distribution.json)):
 
 | Rota | Origem | Configuração |
 |---|---|---|
-| `/*` | S3, via OAC | cache `CachingOptimized`; HTTP é redirecionado para HTTPS |
+| `/*` | S3, via OAC | cache `CachingOptimized`; HTTP é redirecionado para HTTPS; a função `logos-spa-routes` troca as rotas do React por `/index.html` |
 | `/api/*` | EC2 (DNS do Elastic IP), porta 80 | sem cache (`CachingDisabled`), repassa cookies e cabeçalhos (`AllViewerExceptHostHeader`), todos os métodos, **só HTTPS** (um redirecionamento perderia o corpo de um `POST`) |
 
 ```bash
 API_ORIGIN=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].PublicDnsName' --output text)
 config=$(sed -e "s|CALLER_REFERENCE|logos-$(date +%Y%m%d%H%M%S)|" -e "s|BUCKET|$BUCKET|" -e "s|OAC_ID|$OAC_ID|" \
-  -e "s|API_ORIGIN|$API_ORIGIN|" -e "s|CERTIFICATE_ARN|$CERT_ARN|" infra/cloudfront-distribution.json)
+  -e "s|API_ORIGIN|$API_ORIGIN|" -e "s|CERTIFICATE_ARN|$CERT_ARN|" -e "s|FUNCTION_ARN|$FUNCTION_ARN|" \
+  infra/cloudfront-distribution.json)
 DISTRIBUTION_ID=$(aws cloudfront create-distribution-with-tags --distribution-config-with-tags "$config" \
   --query Distribution.Id --output text)
 
@@ -318,6 +341,8 @@ aws cloudfront get-distribution --id $DISTRIBUTION_ID --query Distribution.Domai
 ```
 
 Por fim, no provedor DNS: `CNAME` de `logos` para o domínio `*.cloudfront.net` da distribuição.
+
+> No ambiente atual, a função foi criada depois da distribuição e associada a ela com `get-distribution-config`, acrescentando o `FunctionAssociations` ao `DefaultCacheBehavior`, e `update-distribution` (o mesmo procedimento de "Remover tudo"). O comportamento `/api/*` não tem função: as respostas da API, inclusive 401, 403 e 404, chegam ao navegador como saíram dela.
 
 > **Trecho sem criptografia ([ADR-07](adr/ADR-07-http-entre-cloudfront-e-api.md)):** o HTTPS termina no CloudFront, e o CloudFront fala com a EC2 em HTTP. Esse trecho leva o cookie de sessão e o corpo do login sem cifra. A EC2 só aceita conexões do CloudFront, e os dois estão em `us-east-1`, mas o tráfego entre eles não é cifrado. É uma decisão consciente para o MVP: cifrar até a origem exigiria um certificado público na EC2 (Let's Encrypt, com validação que esbarra no isolamento da porta 80) ou um load balancer com certificado do ACM (cerca de US$ 18/mês).
 
@@ -334,6 +359,12 @@ curl -i http://logos.arturkrauspenhar.com.br/           # 301 para HTTPS
 curl -i http://logos.arturkrauspenhar.com.br/api/health # 403: a API só aceita HTTPS
 curl --max-time 5 http://<elastic-ip>/api/health        # timeout: a EC2 só aceita o CloudFront
 rm cookies.txt
+
+# Rotas do React (ADR-09)
+curl -s -o /dev/null -w "%{http_code} %{content_type}\n" $D/fila/123              # 200 text/html: index.html
+curl -s -o /dev/null -w "%{http_code} %{content_type}\n" $D/assets/nao-existe.js  # 403 application/xml: arquivo inexistente não vira HTML
+curl -s -w " %{http_code}\n" $D/api/rota-que-nao-existe                         # 404 em JSON: a função não atua na API
+curl -s -w " %{http_code}\n" $D/api/me                                          # 401 em JSON
 ```
 
 No navegador, em `$D/api/docs`, fazer o login pelo Swagger (`POST /api/auth/login`) e depois chamar `GET /api/me`, que deve responder 200 sem nenhuma configuração extra.
@@ -343,7 +374,7 @@ No navegador, em `$D/api/docs`, fazer o login pelo Swagger (`POST /api/auth/logi
 Ao fim da avaliação, na ordem abaixo (cada recurso depende dos seguintes). Antes, recupere as variáveis do início deste documento.
 
 ```bash
-# 1. CloudFront: desativar, esperar, apagar; depois o OAC, o bucket e o certificado
+# 1. CloudFront: desativar, esperar, apagar; depois a função, o OAC, o bucket e o certificado
 DISTRIBUTION_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?Aliases.Items[0]=='logos.arturkrauspenhar.com.br'].Id" --output text)
 aws cloudfront get-distribution-config --id $DISTRIBUTION_ID > dist.json
 ETAG=$(python -c "import json; print(json.load(open('dist.json'))['ETag'])")
@@ -353,6 +384,8 @@ aws cloudfront wait distribution-deployed --id $DISTRIBUTION_ID
 aws cloudfront delete-distribution --id $DISTRIBUTION_ID \
   --if-match $(aws cloudfront get-distribution --id $DISTRIBUTION_ID --query ETag --output text)
 rm dist.json dist-config.json
+aws cloudfront delete-function --name logos-spa-routes \
+  --if-match $(aws cloudfront describe-function --name logos-spa-routes --query ETag --output text)
 OAC_ID=$(aws cloudfront list-origin-access-controls --query "OriginAccessControlList.Items[?Name=='logos-frontend-oac'].Id" --output text)
 aws cloudfront delete-origin-access-control --id $OAC_ID \
   --if-match $(aws cloudfront get-origin-access-control --id $OAC_ID --query ETag --output text)

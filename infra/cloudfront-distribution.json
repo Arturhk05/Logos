@@ -37,7 +37,11 @@
         "CachedMethods": { "Quantity": 2, "Items": ["GET", "HEAD"] }
       },
       "Compress": true,
-      "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6"
+      "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
+      "FunctionAssociations": {
+        "Quantity": 1,
+        "Items": [{ "EventType": "viewer-request", "FunctionARN": "FUNCTION_ARN" }]
+      }
     },
     "CacheBehaviors": {
       "Quantity": 1,
