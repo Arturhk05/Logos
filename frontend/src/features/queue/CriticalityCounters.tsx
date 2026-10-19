@@ -1,6 +1,7 @@
 import { SignalHigh, SignalLow, SignalMedium, type LucideIcon } from "lucide-react";
 
 import { CRITICALITIES, CRITICALITY_LABELS, type Criticality } from "../../shared/labels";
+import { ToggleButton } from "../../shared/ui/ToggleButton";
 
 const ICONS: Record<Criticality, LucideIcon> = {
   HIGH: SignalHigh,
@@ -9,7 +10,8 @@ const ICONS: Record<Criticality, LucideIcon> = {
 };
 
 interface CriticalityCountersProps {
-  counts: Partial<Record<Criticality, number>>;
+  /** Without counts (e.g. in the history), only the toggles are shown. */
+  counts?: Partial<Record<Criticality, number>>;
   selected: readonly Criticality[];
   onToggle: (criticality: Criticality) => void;
 }
@@ -22,19 +24,12 @@ export function CriticalityCounters({ counts, selected, onToggle }: CriticalityC
         const Icon = ICONS[criticality];
         const pressed = selected.includes(criticality);
         const high = criticality === "HIGH";
-        // On: filled (red only for high criticality); off: outlined, with feedback on hover and press.
-        const look = pressed
-          ? high
-            ? "border-critical bg-critical text-white"
-            : "border-accent bg-accent text-on-accent"
-          : "border-line bg-surface hover:border-line-strong hover:bg-canvas";
         return (
-          <button
+          <ToggleButton
             key={criticality}
-            type="button"
-            aria-pressed={pressed}
-            className={`flex min-h-10 items-center gap-2 rounded-lg border px-3 text-sm transition active:scale-[0.97] ${look}`}
-            onClick={() => {
+            pressed={pressed}
+            tone={high ? "critical" : "default"}
+            onToggle={() => {
               onToggle(criticality);
             }}
           >
@@ -43,12 +38,14 @@ export function CriticalityCounters({ counts, selected, onToggle }: CriticalityC
               className={`size-4 ${pressed ? "" : high ? "text-critical" : "text-muted"}`}
             />
             <span>{CRITICALITY_LABELS[criticality]}</span>
-            <span
-              className={`text-base font-bold tabular-nums ${!pressed && high ? "text-critical" : ""}`}
-            >
-              {counts[criticality] ?? 0}
-            </span>
-          </button>
+            {counts !== undefined && (
+              <span
+                className={`text-base font-bold tabular-nums ${!pressed && high ? "text-critical" : ""}`}
+              >
+                {counts[criticality] ?? 0}
+              </span>
+            )}
+          </ToggleButton>
         );
       })}
     </div>
