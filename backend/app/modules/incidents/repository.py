@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.modules.incidents.enums import Criticality, IncidentCategory, IncidentStatus
-from app.modules.incidents.models import Incident
+from app.modules.incidents.models import Incident, IncidentEvent
 
 
 class IncidentChanges(TypedDict, total=False):
@@ -73,6 +73,13 @@ class IncidentRepository(Protocol):
         """
         ...
 
+    def add_event(self, event: IncidentEvent) -> IncidentEvent:
+        """Persist a change log entry and return it with its generated fields (id, created_at).
+
+        The event is created with its `incident`, so that incident's `events` already include it.
+        """
+        ...
+
 
 class SqlAlchemyIncidentRepository:
     def __init__(self, session: Session) -> None:
@@ -121,6 +128,12 @@ class SqlAlchemyIncidentRepository:
             .execution_options(populate_existing=True)
         )
         return self._session.scalars(statement).one_or_none()
+
+    def add_event(self, event: IncidentEvent) -> IncidentEvent:
+        self._session.add(event)
+        self._session.flush()
+        self._session.refresh(event)
+        return event
 
     def _find_by_idempotency_key(self, reporter_id: int, key: UUID | None) -> Incident | None:
         if key is None:

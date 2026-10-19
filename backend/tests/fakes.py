@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from app.modules.incidents.models import Incident
+from app.modules.incidents.models import Incident, IncidentEvent
 from app.modules.incidents.repository import IncidentChanges, IncidentFilter, IncidentOrder
 from app.modules.users.models import User
 
@@ -10,6 +10,7 @@ from app.modules.users.models import User
 class InMemoryIncidentRepository:
     def __init__(self, *incidents: Incident) -> None:
         self._incidents = {incident.id: incident for incident in incidents}
+        self._event_ids = 0
 
     def add(self, incident: Incident) -> Incident:
         if incident.idempotency_key is not None:
@@ -58,6 +59,13 @@ class InMemoryIncidentRepository:
             setattr(incident, field, value)
         incident.version += 1
         return incident
+
+    def add_event(self, event: IncidentEvent) -> IncidentEvent:
+        # The event already sits in its incident's `events`, appended when `incident` was set.
+        self._event_ids += 1
+        event.id = self._event_ids
+        event.created_at = datetime.now(UTC)
+        return event
 
 
 class InMemoryUserRepository:

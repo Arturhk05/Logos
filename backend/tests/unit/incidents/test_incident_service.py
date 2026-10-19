@@ -497,3 +497,112 @@ def test_only_accident_with_victims_has_locked_criticality() -> None:
     locked = {option.category for option in category_options() if option.criticality_locked}
 
     assert locked == {IncidentCategory.ACCIDENT_WITH_VICTIMS}
+
+
+# --- change log (RN-12) ------------------------------------------------------
+
+
+def logged(incident: Incident) -> list[tuple[IncidentStatus | None, IncidentStatus, int, str | None]]:
+    return [(event.from_status, event.to_status, event.actor_id, event.reason) for event in incident.events]
+
+
+def test_report_records_the_reporter(driver: User) -> None:
+    service = IncidentService(InMemoryIncidentRepository())
+
+    incident = service.report(driver, build_report())
+
+    assert logged(incident) == [(None, OPEN, driver.id, None)]
+    assert incident.events[0].created_at is not None
+
+
+def test_report_retried_with_the_same_key_records_one_event(driver: User) -> None:
+    service = IncidentService(InMemoryIncidentRepository())
+    key = uuid4()
+    service.report(driver, build_report(idempotency_key=key))
+
+    incident = service.report(driver, build_report(idempotency_key=key))
+
+    assert logged(incident) == [(None, OPEN, driver.id, None)]
+
+
+def test_assume_records_the_analyst(driver: User, analyst: User) -> None:
+    incident = build_incident(driver)
+    service = IncidentService(InMemoryIncidentRepository(incident))
+
+    assumed = service.assume(incident.id, analyst, expected_version=1)
+
+    assert logged(assumed) == [(OPEN, INVESTIGATING, analyst.id, None)]
+
+
+@pytest.mark.parametrize("final_status", [CLOSED, INCONCLUSIVE])
+def test_close_records_the_reason(driver: User, analyst: User, final_status: IncidentStatus) -> None:
+    incident = build_incident_in(INVESTIGATING, driver, analyst)
+    service = IncidentService(InMemoryIncidentRepository(incident))
+
+    closed = service.change_status(incident.id, analyst, expected_version=1, target=final_status, reason="  Pneu trocado  ")
+
+    assert logged(closed) == [(INVESTIGATING, final_status, analyst.id, "Pneu trocado")]
+
+
+@pytest.mark.parametrize(
+    ("reason", "recorded"),
+    [("  Analista saiu do turno  ", "Analista saiu do turno"), (None, None), ("", None), ("   ", None)],
+)
+def test_return_to_queue_records_an_optional_reason(driver: User, analyst: User, reason: str | None, recorded: str | None) -> None:
+    incident = build_incident_in(INVESTIGATING, driver, analyst)
+    service = IncidentService(InMemoryIncidentRepository(incident))
+
+    returned = service.change_status(incident.id, analyst, expected_version=1, target=OPEN, reason=reason)
+
+    assert logged(returned) == [(INVESTIGATING, OPEN, analyst.id, recorded)]
+
+
+def test_return_to_queue_by_supervisor_records_the_supervisor(driver: User, analyst: User) -> None:
+    supervisor = build_user(UserRole.SUPERVISOR)
+    incident = build_incident_in(INVESTIGATING, driver, analyst)
+    service = IncidentService(InMemoryIncidentRepository(incident))
+
+    returned = service.change_status(incident.id, supervisor, expected_version=1, target=OPEN)
+
+    assert logged(returned) == [(INVESTIGATING, OPEN, supervisor.id, None)]
+
+
+def test_assume_with_a_stale_version_records_nothing(driver: User, analyst: User) -> None:
+    incident = build_incident(driver)
+    service = IncidentService(InMemoryIncidentRepository(incident))
+    service.assume(incident.id, analyst, expected_version=1)
+
+    with pytest.raises(ConflictError):
+        service.assume(incident.id, build_user(UserRole.ANALYST), expected_version=1)
+
+    assert logged(incident) == [(OPEN, INVESTIGATING, analyst.id, None)]
+
+
+def test_losing_a_simultaneous_assume_records_nothing(driver: User, analyst: User) -> None:
+    incident = build_incident(driver)
+    service = IncidentService(RepositoryWhereAnotherAnalystWinsTheRace(incident, build_user(UserRole.ANALYST)))
+
+    with pytest.raises(ConflictError):
+        service.assume(incident.id, analyst, expected_version=1)
+
+    assert logged(incident) == []
+
+
+def test_change_status_by_someone_else_records_nothing(driver: User, analyst: User) -> None:
+    incident = build_incident_in(INVESTIGATING, driver, analyst)
+    service = IncidentService(InMemoryIncidentRepository(incident))
+
+    with pytest.raises(PermissionDeniedError):
+        service.change_status(incident.id, build_user(UserRole.ANALYST), expected_version=1, target=OPEN)
+
+    assert logged(incident) == []
+
+
+def test_invalid_transition_records_nothing(driver: User, analyst: User) -> None:
+    incident = build_incident_in(CLOSED, driver, analyst)
+    service = IncidentService(InMemoryIncidentRepository(incident))
+
+    with pytest.raises(BusinessRuleError):
+        service.change_status(incident.id, analyst, expected_version=1, target=OPEN)
+
+    assert logged(incident) == []

@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from app.modules.incidents.enums import Criticality, IncidentCategory, IncidentStatus
-from app.modules.incidents.models import Incident
+from app.modules.incidents.models import Incident, IncidentEvent
 from app.modules.incidents.repository import IncidentChanges, IncidentFilter, IncidentOrder, IncidentRepository
 from app.modules.users.enums import UserRole
 from app.modules.users.models import User
@@ -170,7 +170,8 @@ class IncidentService:
     def report(self, reporter: User, report: IncidentReport) -> Incident:
         """Register a new incident reported by a driver. It starts open and without an assignee.
 
-        Repeating a report with the same idempotency key returns the incident created the first time.
+        Repeating a report with the same idempotency key returns the incident created the first time,
+        without logging the report again.
         """
         incident = Incident(
             category=report.category,
@@ -181,7 +182,10 @@ class IncidentService:
             reporter_id=reporter.id,
             idempotency_key=report.idempotency_key,
         )
-        return self._repository.add(incident)
+        saved = self._repository.add(incident)
+        if saved is incident:
+            self._log(saved, reporter, from_status=None)
+        return saved
 
     def assume(self, incident_id: int, actor: User, expected_version: int) -> Incident:
         """Make `actor` responsible for an open incident."""
@@ -190,7 +194,9 @@ class IncidentService:
         if incident.status is not IncidentStatus.OPEN or incident.assignee_id is not None:
             raise BusinessRuleError("Apenas incidentes abertos e sem responsável podem ser assumidos.")
 
-        return self._save(incident_id, expected_version, {"status": IncidentStatus.INVESTIGATING, "assignee_id": actor.id})
+        assumed = self._save(incident_id, expected_version, {"status": IncidentStatus.INVESTIGATING, "assignee_id": actor.id})
+        self._log(assumed, actor, from_status=IncidentStatus.OPEN)
+        return assumed
 
     def change_status(
         self,
@@ -203,7 +209,7 @@ class IncidentService:
         """Move an incident under investigation to another status.
 
         Closing it (closed or inconclusive) requires a reason, and returning it to the
-        queue removes its assignee so that anyone can assume it again.
+        queue removes its assignee so that anyone can assume it again, optionally with a reason.
         """
         incident = self.get(incident_id)
         self._ensure_unchanged(incident, expected_version)
@@ -216,15 +222,20 @@ class IncidentService:
                 f"Não é possível alterar um incidente de {STATUS_LABELS[incident.status]} para {STATUS_LABELS[target]}."
             )
 
+        reason = reason.strip() if reason is not None else ""
         changes: IncidentChanges = {"status": target}
         if target is IncidentStatus.OPEN:
             changes["assignee_id"] = None
         if target in FINAL_STATUSES:
-            if reason is None or not reason.strip():
+            if not reason:
                 raise BusinessRuleError("Informe o motivo do encerramento.")
-            changes |= {"closed_by_id": actor.id, "closed_at": datetime.now(UTC), "closure_reason": reason.strip()}
+            changes |= {"closed_by_id": actor.id, "closed_at": datetime.now(UTC), "closure_reason": reason}
 
-        return self._save(incident_id, expected_version, changes)
+        # Read before saving: the saved incident is the same object, already in its new status.
+        previous_status = incident.status
+        updated = self._save(incident_id, expected_version, changes)
+        self._log(updated, actor, from_status=previous_status, reason=reason or None)
+        return updated
 
     def _resolve_criticality(self, category: IncidentCategory, chosen: Criticality | None) -> Criticality:
         suggested = SUGGESTED_CRITICALITY[category]
@@ -241,6 +252,11 @@ class IncidentService:
     def _ensure_unchanged(self, incident: Incident, expected_version: int) -> None:
         if incident.version != expected_version:
             raise ConflictError(CONFLICT_MESSAGE, current=incident)
+
+    def _log(self, incident: Incident, actor: User, from_status: IncidentStatus | None, reason: str | None = None) -> None:
+        """Add the change just made to the incident's change log (RN-12)."""
+        event = IncidentEvent(incident=incident, actor_id=actor.id, from_status=from_status, to_status=incident.status, reason=reason)
+        self._repository.add_event(event)
 
     def _save(self, incident_id: int, expected_version: int, changes: IncidentChanges) -> Incident:
         """Persist `changes`, failing with a conflict if someone else changed the incident in the meantime."""
