@@ -12,7 +12,7 @@ import { StatusLabel } from "../../shared/ui/StatusLabel";
 import { ToggleButton } from "../../shared/ui/ToggleButton";
 import { CategoryFilter } from "../queue/CategoryFilter";
 import { CriticalityCounters } from "../queue/CriticalityCounters";
-import { hasFilters, toggle } from "../queue/filters";
+import { hasIncidentFilters, toggle } from "../queue/filters";
 import { HISTORY_PAGE_SIZE, type HistoryItem } from "./api";
 import { CLOSED_STATUSES, pageCount, type ClosedStatus, type HistoryFilters } from "./filters";
 import { Pagination } from "./Pagination";
@@ -38,7 +38,7 @@ const NO_FILTERS: HistoryFilters = { status: [], criticality: [], category: [], 
 
 export function HistoryView(props: HistoryViewProps) {
   const { filters } = props;
-  const filtered = filters.status.length > 0 || hasFilters(filters);
+  const filtered = filters.status.length > 0 || hasIncidentFilters(filters);
   // Any filter change goes back to the first page, which always exists.
   const change = (next: Partial<HistoryFilters>) => {
     props.onFiltersChange({ ...filters, ...next, page: 1 });

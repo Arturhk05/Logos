@@ -55,6 +55,16 @@ def test_me_returns_the_logged_in_user(db_client: TestClient, supervisor: User) 
     assert response.json() == {"id": supervisor.id, "username": "supervisor", "role": "SUPERVISOR"}
 
 
+def test_me_does_not_show_the_driver_phone(db_client: TestClient, db_session: Session) -> None:
+    create_user(db_session, UserRole.DRIVER, username="jose", password_hash=PASSWORD_HASH, phone="5500900000001")
+    db_client.post("/api/auth/login", json={"username": "jose", "password": PASSWORD})
+
+    response = db_client.get("/api/me")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert "phone" not in response.json()
+
+
 def test_me_without_session_returns_401(db_client: TestClient) -> None:
     response = db_client.get("/api/me")
 

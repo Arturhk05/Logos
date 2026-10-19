@@ -119,11 +119,12 @@ class IncidentService:
         self,
         criticalities: Collection[Criticality] = (),
         categories: Collection[IncidentCategory] = (),
+        assignee_id: int | None = None,
     ) -> IncidentQueue:
         """Return the operational queue, most critical first and oldest first within the same criticality.
 
-        An empty filter means no filter. Counts ignore the filters, so the central always sees
-        how many active incidents exist of each criticality.
+        An empty filter means no filter, and so does no assignee. Counts ignore the filters, so the
+        central always sees how many active incidents exist of each criticality.
         """
         active = self._repository.search(IncidentFilter(statuses=[status for status in IncidentStatus if status.is_active]))
         counts = {criticality: 0 for criticality in Criticality}
@@ -133,7 +134,9 @@ class IncidentService:
         selected = [
             incident
             for incident in active
-            if (not criticalities or incident.criticality in criticalities) and (not categories or incident.category in categories)
+            if (not criticalities or incident.criticality in criticalities)
+            and (not categories or incident.category in categories)
+            and (assignee_id is None or incident.assignee_id == assignee_id)
         ]
         return IncidentQueue(items=sorted(selected, key=lambda incident: incident.criticality.priority), counts=counts)
 

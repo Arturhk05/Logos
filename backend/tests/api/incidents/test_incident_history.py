@@ -120,3 +120,14 @@ def test_history_requires_login(db_client: TestClient) -> None:
     response = db_client.get("/api/incidents/history")
 
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_history_does_not_show_phones(db_client: TestClient, db_session: Session, login_as: LoginAs) -> None:
+    camila = login_as(UserRole.ANALYST, "camila")
+    _closed(db_session, create_user(db_session, UserRole.DRIVER, phone="5500900000001"), camila, 10)
+
+    response = db_client.get("/api/incidents/history")
+
+    assert response.json()["items"]
+    assert "phone" not in response.text
+    assert "5500900000001" not in response.text

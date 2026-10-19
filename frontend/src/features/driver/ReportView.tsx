@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 
 import { CRITICALITIES, CRITICALITY_LABELS, type Criticality } from "../../shared/labels";
+import { phoneEnding } from "../../shared/phone";
 import { Button } from "../../shared/ui/Button";
 import { CategoryIcon } from "../../shared/ui/CategoryIcon";
 import { TableSkeleton } from "../../shared/ui/Skeleton";
@@ -22,7 +23,7 @@ export interface ReportViewProps {
   onSubmit: () => void;
   pending: boolean;
   submitError?: string;
-  created?: { id: number };
+  created?: { id: number; phone: string };
   onReportAnother: () => void;
 }
 
@@ -45,7 +46,7 @@ function choiceLook(pressed: boolean, critical = false): string {
 
 export function ReportView(props: ReportViewProps) {
   if (props.created !== undefined) {
-    return <Created id={props.created.id} onReportAnother={props.onReportAnother} />;
+    return <Created {...props.created} onReportAnother={props.onReportAnother} />;
   }
 
   const { draft, errors } = props;
@@ -204,13 +205,24 @@ function FieldError({ message }: { message?: string }) {
   );
 }
 
-function Created({ id, onReportAnother }: { id: number; onReportAnother: () => void }) {
+function Created({
+  id,
+  phone,
+  onReportAnother,
+}: {
+  id: number;
+  phone: string;
+  onReportAnother: () => void;
+}) {
   return (
     <div className="flex flex-col items-center gap-4 py-10 text-center">
       <CircleCheck aria-hidden className="size-12 text-ink" />
       <div>
         <p className="text-lg font-bold">Incidente #{id} enviado.</p>
-        <p className="text-muted">A central já foi avisada.</p>
+        <p className="text-muted">
+          A central já foi avisada e vai entrar em contato pelo WhatsApp no número terminado em{" "}
+          {phoneEnding(phone)}.
+        </p>
       </div>
       <div className="flex w-full flex-col gap-2">
         <Link

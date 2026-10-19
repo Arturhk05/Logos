@@ -18,7 +18,9 @@ Todos os usuários de demonstração usam a senha `logos123`, que também aparec
 | `camila`, `lucas` | Analista | Vê a fila de incidentes ativos, priorizada por criticidade e com filtros, assume um incidente e o leva até o encerramento. Com os dois, dá para ver a disputa pelo mesmo incidente. |
 | `roberto` | Supervisor | Tudo o que o analista faz, e também altera incidentes assumidos por outras pessoas. |
 
-Os analistas e o supervisor também consultam o histórico paginado dos incidentes encerrados. A base de demonstração tem 140 incidentes: 100 ativos na fila e 40 no histórico.
+Os analistas e o supervisor também consultam o histórico paginado dos incidentes encerrados. No detalhe de qualquer incidente, a linha do tempo mostra quem o reportou, assumiu, devolveu à fila e encerrou, quando e com qual motivo. A base de demonstração tem 140 incidentes: 100 ativos na fila e 40 no histórico.
+
+No detalhe do incidente, o telefone do motorista abre uma conversa no WhatsApp já com uma mensagem sobre o incidente; na demonstração, os números são fictícios (DDD `00`) e não levam a ninguém. Na fila, o filtro "Assumidos por mim" mostra só os incidentes de quem está logado e combina com os filtros de criticidade e categoria.
 
 ## Como rodar localmente
 

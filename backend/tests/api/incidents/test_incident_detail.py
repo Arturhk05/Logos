@@ -17,7 +17,7 @@ NOT_FOUND = {"detail": "Incidente não encontrado."}
 
 def test_detail_of_closed_incident_shows_who_closed_it_and_why(db_client: TestClient, db_session: Session, login_as: LoginAs) -> None:
     analyst = login_as(UserRole.ANALYST, "camila")
-    driver = create_user(db_session, UserRole.DRIVER, username="jose")
+    driver = create_user(db_session, UserRole.DRIVER, username="jose", phone="5500900000001")
     incident = create_incident(
         db_session,
         driver,
@@ -45,7 +45,7 @@ def test_detail_of_closed_incident_shows_who_closed_it_and_why(db_client: TestCl
         "status": "CLOSED",
         "location": "BR-101, km 12",
         "description": "Queda de barreira bloqueando as duas faixas",
-        "reporter": {"id": driver.id, "username": "jose"},
+        "reporter": {"id": driver.id, "username": "jose", "phone": "5500900000001"},
         "assignee": {"id": analyst.id, "username": "camila"},
         "closed_by": {"id": analyst.id, "username": "camila"},
         "closed_at": "2026-10-18T11:30:00Z",
@@ -64,8 +64,44 @@ def test_driver_sees_detail_of_own_incident(db_client: TestClient, db_session: S
     response = db_client.get(f"/api/incidents/{incident.id}")
 
     assert response.status_code == status.HTTP_200_OK
-    assert response.json()["reporter"] == {"id": driver.id, "username": "jose"}
+    assert response.json()["reporter"] == {"id": driver.id, "username": "jose", "phone": driver.phone}
     assert response.json()["assignee"] is None
+
+
+# --- reporter phone (RN-13, US-13) -------------------------------------------
+
+
+def test_detail_shows_the_reporter_phone_to_the_central(db_client: TestClient, db_session: Session, login_as: LoginAs) -> None:
+    login_as(UserRole.ANALYST, "camila")
+    driver = create_user(db_session, UserRole.DRIVER, username="jose", phone="5500900000001")
+    incident = create_incident(db_session, driver)
+
+    response = db_client.get(f"/api/incidents/{incident.id}")
+
+    assert response.json()["reporter"] == {"id": driver.id, "username": "jose", "phone": "5500900000001"}
+
+
+def test_driver_sees_their_own_phone_in_their_incident(db_client: TestClient, db_session: Session, login_as: LoginAs) -> None:
+    driver = login_as(UserRole.DRIVER, "jose")
+    driver.phone = "5500900000001"
+
+    response = db_client.post("/api/incidents", json=REPORT, headers={"Idempotency-Key": str(uuid4())})
+
+    assert response.status_code == status.HTTP_201_CREATED
+    assert response.json()["reporter"]["phone"] == "5500900000001"
+
+
+def test_phone_appears_only_in_the_reporter_of_the_detail(db_client: TestClient, db_session: Session, login_as: LoginAs) -> None:
+    login_as(UserRole.DRIVER, "jose")
+    incident = db_client.post("/api/incidents", json=REPORT, headers={"Idempotency-Key": str(uuid4())}).json()
+    login_as(UserRole.ANALYST, "camila")
+    db_client.post(f"/api/incidents/{incident['id']}/assume", json={"version": 1})
+
+    body = db_client.get(f"/api/incidents/{incident['id']}").json()
+
+    assert "phone" in body["reporter"]
+    assert "phone" not in body["assignee"]
+    assert all("phone" not in event["actor"] for event in body["events"])
 
 
 def test_driver_gets_404_for_incident_of_another_driver(db_client: TestClient, db_session: Session, login_as: LoginAs) -> None:

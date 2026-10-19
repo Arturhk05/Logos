@@ -25,6 +25,8 @@ def build_user(role: UserRole = UserRole.ANALYST, **overrides: Any) -> User:
         "username": f"user{number}",
         "password_hash": "not-a-real-hash",
         "role": role,
+        # Every driver has a phone (RN-13); area code 00 so it can never be a real number.
+        "phone": f"55009{number:08d}" if role is UserRole.DRIVER else None,
     }
     return User(**(fields | overrides))
 

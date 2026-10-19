@@ -15,7 +15,7 @@ const incident: IncidentDetail = {
   status: "OPEN",
   location: "BR-381, km 501",
   description: "Colisão entre dois carros.",
-  reporter: { id: 9, username: "jose" },
+  reporter: { id: 9, username: "jose", phone: "5500900000001" },
   assignee: null,
   closed_by: null,
   closed_at: null,

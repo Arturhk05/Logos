@@ -405,6 +405,21 @@ No navegador: recarregar a página em `/fila/<id>` e `/historico?page=2` (analis
 
 No navegador, em `$D/api/docs`, fazer o login pelo Swagger (`POST /api/auth/login`) e depois chamar `GET /api/me`, que deve responder 200 sem nenhuma configuração extra.
 
+## Recriar os dados de demonstração
+
+O deploy roda o seed, mas ele só cria incidentes quando a tabela está vazia. Para recriar os 140 incidentes de exemplo, por exemplo depois de uma mudança no seed ou de uma demonstração que alterou muitos incidentes, o seed roda com `--reset-incidents` na EC2, com a mesma imagem da API em execução.
+
+> **Atenção:** apaga **todos** os incidentes e as linhas do tempo do banco de produção. Os usuários não são alterados.
+
+```bash
+cmd='docker run --rm --env-file /etc/logos/api.env "$(docker inspect --format "{{.Config.Image}}" logos-api)" python -m scripts.seed --reset-incidents'
+command_id=$(aws ssm send-command --instance-ids $INSTANCE_ID --document-name AWS-RunShellScript \
+  --parameters "$(jq -n --arg cmd "$cmd" '{commands: [$cmd]}')" --query Command.CommandId --output text)
+aws ssm wait command-executed --command-id $command_id --instance-id $INSTANCE_ID
+aws ssm get-command-invocation --command-id $command_id --instance-id $INSTANCE_ID --query StandardOutputContent --output text
+# Incidents deleted: <n> / Demo users created: 0 / Sample incidents created: 140
+```
+
 ## Remover tudo
 
 Ao fim da avaliação, na ordem abaixo (cada recurso depende dos seguintes). Antes, recupere as variáveis do início deste documento.

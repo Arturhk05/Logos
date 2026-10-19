@@ -8,7 +8,7 @@ from app.modules.incidents.enums import Criticality, IncidentCategory, IncidentS
 from app.modules.incidents.models import Incident
 from app.modules.users.enums import UserRole
 from app.modules.users.models import User
-from scripts.seed import reset_incidents, seed_incidents, seed_users
+from scripts.seed import reset_incidents, seed_incidents, seed_phones, seed_users
 from tests.factories import create_incident, create_user
 
 EXPECTED_USERS = {
@@ -19,6 +19,13 @@ EXPECTED_USERS = {
     "maria": UserRole.DRIVER,
     "antonio": UserRole.DRIVER,
     "paulo": UserRole.DRIVER,
+}
+# Fictitious numbers with area code 00, so no demo link opens a chat with a real person.
+EXPECTED_PHONES = {
+    "jose": "5500900000001",
+    "maria": "5500900000002",
+    "antonio": "5500900000003",
+    "paulo": "5500900000004",
 }
 ACTIVE = {IncidentStatus.OPEN, IncidentStatus.INVESTIGATING}
 CLOSED = {IncidentStatus.CLOSED, IncidentStatus.INCONCLUSIVE}
@@ -54,6 +61,33 @@ def test_seed_can_run_twice(db_session: Session) -> None:
     assert seed_users(db_session) == 0
 
     assert len(_users(db_session)) == len(EXPECTED_USERS)
+
+
+def test_seed_gives_every_demo_driver_a_phone(db_session: Session) -> None:
+    seed_users(db_session)
+    seed_phones(db_session)
+
+    phones = {user.username: user.phone for user in _users(db_session)}
+    assert phones == EXPECTED_PHONES | {"camila": None, "lucas": None, "roberto": None}
+
+
+def test_seed_fills_missing_phones_of_existing_users(db_session: Session) -> None:
+    jose = create_user(db_session, UserRole.DRIVER, username="jose", phone=None)
+    seed_users(db_session)
+
+    assert seed_phones(db_session) == len(EXPECTED_PHONES)
+    assert jose.phone == "5500900000001"
+    assert seed_phones(db_session) == 0
+    assert jose.phone == "5500900000001"
+
+
+def test_seed_phones_keep_an_existing_phone(db_session: Session) -> None:
+    jose = create_user(db_session, UserRole.DRIVER, username="jose", phone="5561999998888")
+    seed_users(db_session)
+
+    seed_phones(db_session)
+
+    assert jose.phone == "5561999998888"
 
 
 def test_seed_fills_the_queue_with_100_active_incidents_and_the_history_with_40(db_session: Session) -> None:

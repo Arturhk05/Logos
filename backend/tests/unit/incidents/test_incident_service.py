@@ -365,6 +365,29 @@ def test_queue_counts_ignore_filters(driver: User) -> None:
     assert queue.counts == {Criticality.HIGH: 2, Criticality.MEDIUM: 0, Criticality.LOW: 1}
 
 
+def test_queue_filters_by_assignee(driver: User, analyst: User) -> None:
+    other = build_user(UserRole.ANALYST)
+    mine_high = build_incident(driver, criticality=Criticality.HIGH, status=INVESTIGATING, assignee_id=analyst.id, created_at=_at(8))
+    mine_low = build_incident(driver, criticality=Criticality.LOW, status=INVESTIGATING, assignee_id=analyst.id, created_at=_at(9))
+    theirs = build_incident(driver, criticality=Criticality.HIGH, status=INVESTIGATING, assignee_id=other.id, created_at=_at(10))
+    unassigned = build_incident(driver, criticality=Criticality.HIGH, created_at=_at(11))
+    service = IncidentService(InMemoryIncidentRepository(mine_high, mine_low, theirs, unassigned))
+
+    assert service.list_active(assignee_id=analyst.id).items == [mine_high, mine_low]
+    assert service.list_active(criticalities={Criticality.HIGH}, assignee_id=analyst.id).items == [mine_high]
+
+
+def test_queue_counts_ignore_the_assignee_filter(driver: User, analyst: User) -> None:
+    mine = build_incident(driver, criticality=Criticality.HIGH, status=INVESTIGATING, assignee_id=analyst.id, created_at=_at(8))
+    unassigned = build_incident(driver, criticality=Criticality.LOW, created_at=_at(9))
+    service = IncidentService(InMemoryIncidentRepository(mine, unassigned))
+
+    queue = service.list_active(assignee_id=analyst.id)
+
+    assert queue.items == [mine]
+    assert queue.counts == {Criticality.HIGH: 1, Criticality.MEDIUM: 0, Criticality.LOW: 1}
+
+
 def test_queue_counts_include_every_criticality_even_when_zero() -> None:
     queue = IncidentService(InMemoryIncidentRepository()).list_active()
 

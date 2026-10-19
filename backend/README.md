@@ -76,7 +76,7 @@ Sobe a API e o PostgreSQL, sem precisar do uv nem do Python instalados, e també
 | `docker compose down` | Para os containers, mantendo os dados |
 | `docker compose down -v` | Para os containers e **apaga todos os dados** |
 
-A subida segue esta ordem: o banco fica saudável, o serviço `migrate` aplica as migrations (`alembic upgrade head`), cria os usuários de demonstração que faltarem, cria os incidentes de exemplo se ainda não houver nenhum e termina, e só então a API sobe. Se alguma migration ou o seed falhar, a API não é iniciada (`docker compose logs migrate` mostra o erro).
+A subida segue esta ordem: o banco fica saudável, o serviço `migrate` aplica as migrations (`alembic upgrade head`), cria os usuários de demonstração que faltarem, preenche o telefone dos motoristas que ainda não têm, cria os incidentes de exemplo se ainda não houver nenhum e termina, e só então a API sobe. Se alguma migration ou o seed falhar, a API não é iniciada (`docker compose logs migrate` mostra o erro).
 
 ## Executar para desenvolvimento
 
@@ -100,15 +100,23 @@ Se a API do Docker estiver rodando, pare-a antes (`docker compose stop api`), po
 
 ## Usuários de demonstração
 
-Criados pelo seed, tanto no Docker quanto no ambiente de desenvolvimento. Todos usam a senha `logos123`:
+Criados pelo seed, tanto no Docker quanto no ambiente de desenvolvimento. Todos usam a senha `logos123`. Os telefones dos motoristas são fictícios, com DDD `00`, para que nenhum link do WhatsApp da demonstração abra conversa com uma pessoa real:
 
-| Usuário | Papel |
-|---|---|
-| `camila` | Analista |
-| `lucas` | Analista (para demonstrar dois analistas disputando o mesmo incidente) |
-| `roberto` | Supervisor |
-| `jose` | Motorista |
-| `maria`, `antonio`, `paulo` | Motoristas (reportantes dos incidentes de exemplo) |
+| Usuário | Papel | Telefone |
+|---|---|---|
+| `camila` | Analista | |
+| `lucas` | Analista (para demonstrar dois analistas disputando o mesmo incidente) | |
+| `roberto` | Supervisor | |
+| `jose` | Motorista | `5500900000001` |
+| `maria` | Motorista (reportante dos incidentes de exemplo) | `5500900000002` |
+| `antonio` | Motorista (reportante dos incidentes de exemplo) | `5500900000003` |
+| `paulo` | Motorista (reportante dos incidentes de exemplo) | `5500900000004` |
+
+O seed preenche o telefone dos motoristas que ainda não têm, a cada execução, e mantém um telefone já cadastrado. Para testar o WhatsApp com o seu número, altere o do motorista direto no banco:
+
+```bash
+docker compose exec db psql -U logos -d logos -c "UPDATE users SET phone = '55DDNUMERO' WHERE username = 'jose';"
+```
 
 ## Incidentes de exemplo
 

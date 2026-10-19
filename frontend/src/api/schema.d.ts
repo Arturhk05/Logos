@@ -257,7 +257,7 @@ export interface components {
             id: number;
             /** Location */
             location: string;
-            reporter: components["schemas"]["UserSummary"];
+            reporter: components["schemas"]["ReporterSummary"];
             status: components["schemas"]["IncidentStatus"];
             /**
              * Updated At
@@ -358,6 +358,18 @@ export interface components {
             description: string;
             /** Location */
             location: string;
+        };
+        /**
+         * ReporterSummary
+         * @description The only place a phone is shown: the reporter of an incident's details (RN-13).
+         */
+        ReporterSummary: {
+            /** Id */
+            id: number;
+            /** Phone */
+            phone: string;
+            /** Username */
+            username: string;
         };
         /** StatusChangeRequest */
         StatusChangeRequest: {
@@ -524,6 +536,7 @@ export interface operations {
             query?: {
                 criticality?: components["schemas"]["Criticality"][] | null;
                 category?: components["schemas"]["IncidentCategory"][] | null;
+                assigned_to_me?: boolean;
             };
             header?: never;
             path?: never;

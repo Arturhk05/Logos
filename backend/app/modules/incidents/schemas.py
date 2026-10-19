@@ -16,6 +16,12 @@ class UserSummary(BaseModel):
     username: str
 
 
+class ReporterSummary(UserSummary):
+    """The only place a phone is shown: the reporter of an incident's details (RN-13)."""
+
+    phone: str
+
+
 class IncidentSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -70,7 +76,7 @@ class IncidentDetail(BaseModel):
     status: IncidentStatus
     location: str
     description: str
-    reporter: UserSummary
+    reporter: ReporterSummary
     assignee: UserSummary | None
     closed_by: UserSummary | None
     closed_at: datetime | None
