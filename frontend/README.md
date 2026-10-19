@@ -54,3 +54,7 @@ Cliques, foco e a tecla Esc são conferidos no navegador.
 - Os tipos de `src/api/schema.d.ts` são gerados a partir do contrato da API (`openapi.json`). Quando a API mudar, exporte o contrato no backend (`uv run python -m scripts.export_openapi`) e rode `npm run gen:api`.
 - `src/api/client.ts` faz as chamadas e transforma qualquer falha em um `ApiError`, com uma mensagem pronta para o usuário.
 - `src/api/query-client.ts` define quando uma leitura é repetida: só em falhas temporárias (sem conexão, servidor indisponível, limite de requisições), até 3 vezes e com espera crescente. Alterações nunca são repetidas automaticamente.
+
+## Deploy
+
+Um push na `main` que altere `frontend/` publica a interface pelo workflow [`deploy-frontend.yml`](../.github/workflows/deploy-frontend.yml): as mesmas verificações do CI, o build enviado ao S3 e a invalidação do cache do CloudFront. Os passos e a configuração da AWS estão em [`docs/deploy.md`](../docs/deploy.md), e a forma como o CloudFront entrega as rotas do React, sem alterar as respostas da API, na [ADR-09](../docs/adr/ADR-09-rotas-do-frontend-no-cloudfront.md).
