@@ -1,4 +1,4 @@
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Path, Query, status
@@ -50,9 +50,15 @@ def list_active_incidents(
     service: Service,
     criticality: Annotated[list[Criticality] | None, Query()] = None,
     category: Annotated[list[IncidentCategory] | None, Query()] = None,
-    assigned_to_me: bool = False,
+    # A single parameter, so "assigned to me" and "unassigned" cannot be asked for together.
+    assignee: Literal["me", "none"] | None = None,
 ) -> IncidentQueueResponse:
-    queue = service.list_active(criticality or (), category or (), assignee_id=user.id if assigned_to_me else None)
+    queue = service.list_active(
+        criticality or (),
+        category or (),
+        assignee_id=user.id if assignee == "me" else None,
+        unassigned=assignee == "none",
+    )
     return IncidentQueueResponse.model_validate(queue)
 
 

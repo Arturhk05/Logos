@@ -377,6 +377,16 @@ def test_queue_filters_by_assignee(driver: User, analyst: User) -> None:
     assert service.list_active(criticalities={Criticality.HIGH}, assignee_id=analyst.id).items == [mine_high]
 
 
+def test_queue_filters_unassigned_incidents(driver: User, analyst: User) -> None:
+    high = build_incident(driver, criticality=Criticality.HIGH, created_at=_at(8))
+    low = build_incident(driver, criticality=Criticality.LOW, created_at=_at(9))
+    assigned = build_incident(driver, criticality=Criticality.HIGH, status=INVESTIGATING, assignee_id=analyst.id, created_at=_at(10))
+    service = IncidentService(InMemoryIncidentRepository(high, low, assigned))
+
+    assert service.list_active(unassigned=True).items == [high, low]
+    assert service.list_active(criticalities={Criticality.LOW}, unassigned=True).items == [low]
+
+
 def test_queue_counts_ignore_the_assignee_filter(driver: User, analyst: User) -> None:
     mine = build_incident(driver, criticality=Criticality.HIGH, status=INVESTIGATING, assignee_id=analyst.id, created_at=_at(8))
     unassigned = build_incident(driver, criticality=Criticality.LOW, created_at=_at(9))

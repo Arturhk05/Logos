@@ -832,12 +832,22 @@
           },
           {
             "in": "query",
-            "name": "assigned_to_me",
+            "name": "assignee",
             "required": false,
             "schema": {
-              "default": false,
-              "title": "Assigned To Me",
-              "type": "boolean"
+              "anyOf": [
+                {
+                  "enum": [
+                    "me",
+                    "none"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Assignee"
             }
           },
           {
