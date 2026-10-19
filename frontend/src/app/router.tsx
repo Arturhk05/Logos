@@ -5,15 +5,17 @@ import { MyReportsPage } from "../features/driver/MyReportsPage";
 import { ReportPage } from "../features/driver/ReportPage";
 import { HistoryPage } from "../features/history/HistoryPage";
 import { QueuePage } from "../features/queue/QueuePage";
+import { AppError } from "./AppError";
 import { CentralLayout } from "./CentralLayout";
 import { DriverLayout } from "./DriverLayout";
 import { HomeRedirect, RequireRole } from "./RequireRole";
 import { SessionGate } from "./SessionGate";
 
 export const router = createBrowserRouter([
-  { path: "/login", element: <LoginPage /> },
+  { path: "/login", element: <LoginPage />, errorElement: <AppError /> },
   {
     element: <SessionGate />,
+    errorElement: <AppError />,
     children: [
       {
         element: <RequireRole area="central" />,

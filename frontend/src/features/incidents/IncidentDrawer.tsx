@@ -10,6 +10,7 @@ import { ActionDialog } from "./ActionDialog";
 import {
   ACTION_TARGET,
   availableActions,
+  confirmationState,
   needsConfirmation,
   needsReason,
   type ConfirmedAction,
@@ -57,7 +58,9 @@ export function IncidentDrawer({
   const query = useQuery(detail);
   const now = useNow(30_000);
 
-  const [dialogFor, setDialogFor] = useState<ConfirmedAction>();
+  // The incident as it was when the dialog opened: confirming sends that version, so a change made
+  // while the user was typing is reported as a conflict instead of being overwritten (ADR-02).
+  const [dialogFor, setDialogFor] = useState<{ action: ConfirmedAction; seen: IncidentDetail }>();
   const [reason, setReason] = useState("");
   const [conflict, setConflict] = useState<string>();
   const [saveError, setSaveError] = useState<string>();
@@ -73,9 +76,12 @@ export function IncidentDrawer({
     },
     onError: (error) => {
       if (error instanceof ApiError && error.kind === "conflict" && error.current !== undefined) {
-        queryClient.setQueryData(detail.queryKey, error.current);
+        const current = error.current;
+        queryClient.setQueryData(detail.queryKey, current);
         void queryClient.invalidateQueries({ queryKey: ["incidents", "queue"] });
-        setConflict(conflictMessage(error.current, user, error.message));
+        setConflict(conflictMessage(current, user, error.message));
+        // Having seen the conflict, the user now decides on the current version.
+        setDialogFor((open) => (open === undefined ? undefined : { ...open, seen: current }));
         return;
       }
       const temporary = error instanceof ApiError && TEMPORARY_FAILURES.has(error.kind);
@@ -97,7 +103,7 @@ export function IncidentDrawer({
     if (needsConfirmation(action)) {
       setSaveError(undefined);
       setConflict(undefined);
-      setDialogFor(action);
+      setDialogFor({ action, seen: incident });
       return;
     }
     attempt({ action, incident });
@@ -125,9 +131,9 @@ export function IncidentDrawer({
       {dialogFor !== undefined && (
         <ActionDialog
           open
-          action={dialogFor}
-          assignee={incident?.assignee?.username}
-          assigneeIsUser={incident?.assignee?.id === user.id}
+          action={dialogFor.action}
+          assignee={dialogFor.seen.assignee?.username}
+          assigneeIsUser={dialogFor.seen.assignee?.id === user.id}
           reason={reason}
           onReasonChange={setReason}
           onCancel={() => {
@@ -135,20 +141,16 @@ export function IncidentDrawer({
             setSaveError(undefined);
           }}
           onConfirm={() => {
-            if (incident !== undefined) {
-              attempt({
-                action: dialogFor,
-                incident,
-                reason: needsReason(dialogFor) ? reason.trim() : undefined,
-              });
-            }
+            attempt({
+              action: dialogFor.action,
+              incident: dialogFor.seen,
+              reason: needsReason(dialogFor.action) ? reason.trim() : undefined,
+            });
           }}
           pending={mutation.isPending}
           conflict={conflict}
           error={saveError}
-          canConfirm={
-            actions.includes(dialogFor) && (!needsReason(dialogFor) || reason.trim() !== "")
-          }
+          {...confirmationState(dialogFor.action, incident, user, reason)}
         />
       )}
     </Dialog>

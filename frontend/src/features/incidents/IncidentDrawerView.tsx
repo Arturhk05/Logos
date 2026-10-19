@@ -48,7 +48,8 @@ export function IncidentDrawerView(props: IncidentDrawerViewProps) {
         >
           <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
           <span>
-            <strong className="font-semibold">{props.conflict}</strong> Esta é a versão atual.
+            <strong className="font-semibold">{props.conflict}</strong> Veja abaixo como ele está
+            agora.
           </span>
         </p>
       )}

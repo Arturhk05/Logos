@@ -19,6 +19,7 @@ const props: ActionDialogProps = {
   onCancel: () => undefined,
   pending: false,
   canConfirm: false,
+  unavailable: false,
 };
 
 describe("ActionDialog when closing", () => {
@@ -74,5 +75,34 @@ describe("ActionDialog when sending back to the queue", () => {
     );
 
     expect(textOf(html)).toContain("você deixa de ser o responsável");
+  });
+});
+
+describe("ActionDialog when the incident changed meanwhile", () => {
+  it("says why the action is no longer possible", () => {
+    const html = renderView(
+      <ActionDialog {...props} reason="Pista liberada" unavailable canConfirm={false} />,
+    );
+
+    expect(html).toContain("Este incidente mudou e esta ação não está mais disponível.");
+    expect(html).toContain("Pista liberada");
+  });
+
+  it("does not leave an empty name when the incident has no assignee anymore", () => {
+    const html = renderView(
+      <ActionDialog {...props} action="reopen" assignee={undefined} unavailable />,
+    );
+
+    expect(html).not.toContain("<strong></strong>");
+  });
+
+  it("announces the conflict to screen readers", () => {
+    const html = renderView(
+      <ActionDialog {...props} conflict="Este incidente foi encerrado por roberto." />,
+    );
+
+    expect(html).toMatch(
+      /role="alert"[^>]*>(?:(?!<\/p>)[\s\S])*Este incidente foi encerrado por roberto\./,
+    );
   });
 });

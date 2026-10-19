@@ -81,17 +81,44 @@ describe("handleUnauthorized", () => {
     client.setQueryData(["me"], camila);
     const navigate = vi.fn();
 
-    handleUnauthorized(client, navigate);
+    handleUnauthorized(client, navigate, "/fila/7");
 
     expect(navigate).toHaveBeenCalledWith("/login", { state: { expired: true } });
-    expect(client.getQueryData(["me"])).toBeUndefined();
+  });
+
+  it("keeps the cached user, so the screens still on the way out do not break", () => {
+    const client = new QueryClient();
+    client.setQueryData(["me"], camila);
+
+    handleUnauthorized(client, vi.fn(), "/fila/7");
+
+    expect(client.getQueryData(["me"])).toEqual(camila);
+  });
+
+  it("keeps warning when several requests fail together", () => {
+    const client = new QueryClient();
+    client.setQueryData(["me"], camila);
+    const navigate = vi.fn();
+
+    handleUnauthorized(client, navigate, "/fila/7");
+    handleUnauthorized(client, navigate, "/fila/7");
+
+    expect(navigate).toHaveBeenLastCalledWith("/login", { state: { expired: true } });
   });
 
   it("does not warn on a first visit without a session", () => {
     const navigate = vi.fn();
 
-    handleUnauthorized(new QueryClient(), navigate);
+    handleUnauthorized(new QueryClient(), navigate, "/fila");
 
     expect(navigate).toHaveBeenCalledWith("/login", { state: { expired: false } });
+  });
+
+  it("stays put when already on the login screen", () => {
+    const navigate = vi.fn();
+
+    handleUnauthorized(new QueryClient(), navigate, "/login");
+
+    expect(navigate).not.toHaveBeenCalled();
   });
 });

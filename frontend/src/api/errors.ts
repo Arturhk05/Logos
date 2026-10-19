@@ -17,7 +17,7 @@ const DEFAULT_MESSAGES: Record<ApiErrorKind, string> = {
   unauthorized: "Sua sessão expirou. Entre novamente.",
   forbidden: "Você não tem permissão para esta ação.",
   not_found: "Não encontramos o que você procurava.",
-  conflict: "Este incidente foi alterado por outra pessoa. Confira a versão atual.",
+  conflict: "Este incidente foi alterado por outra pessoa. Confira como ele está agora.",
   invalid: "Dados inválidos. Revise os campos e tente novamente.",
   rate_limited: "Muitas tentativas seguidas. Aguarde um pouco e tente novamente.",
   unavailable: "O sistema está temporariamente indisponível. Tente novamente em instantes.",

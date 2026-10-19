@@ -11,9 +11,13 @@ import { handleUnauthorized } from "./app/session";
 import "./index.css";
 
 setUnauthorizedHandler(() => {
-  handleUnauthorized(queryClient, (to, options) => {
-    void router.navigate(to, options);
-  });
+  handleUnauthorized(
+    queryClient,
+    (to, options) => {
+      void router.navigate(to, options);
+    },
+    router.state.location.pathname,
+  );
 });
 
 const root = document.getElementById("root");

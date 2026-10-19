@@ -1,4 +1,4 @@
-import { queryOptions, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { queryOptions, useQuery, type QueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 
 import { api, request } from "../api/client";
@@ -35,12 +35,21 @@ export function canAccess(role: UserRole, area: Area): boolean {
 
 type Navigate = (to: string, options: { state: { expired: boolean } }) => void;
 
-/** Called on any 401 outside the login: the session is gone, so the cached data of that user goes too. */
-export function handleUnauthorized(queryClient: QueryClient, navigate: Navigate): void {
+export const LOGIN_PATH = "/login";
+
+/**
+ * Called on any 401 outside the login: the session is gone. The cache is left alone here, because the
+ * screens of the old session are still mounted until the navigation commits; LoginPage clears it.
+ */
+export function handleUnauthorized(
+  queryClient: QueryClient,
+  navigate: Navigate,
+  currentPath: string,
+): void {
+  if (currentPath === LOGIN_PATH) return;
   // Without a cached user this is a first visit, not an expired session.
   const expired = queryClient.getQueryData(ME_KEY) !== undefined;
-  queryClient.clear();
-  navigate("/login", { state: { expired } });
+  navigate(LOGIN_PATH, { state: { expired } });
 }
 
 /** The logged-in user, inside routes that SessionGate already protects. */
@@ -51,15 +60,13 @@ export function useCurrentUser(): CurrentUser {
 }
 
 export function useLogout(): () => void {
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
   return () => {
-    // Even if the request fails, this device stops showing the user's data.
+    // Even if the request fails, this device stops showing the user's data: LoginPage clears the cache.
     void logout()
       .catch(() => undefined)
       .finally(() => {
-        queryClient.clear();
-        void navigate("/login", { replace: true });
+        void navigate(LOGIN_PATH, { replace: true });
       });
   };
 }

@@ -104,6 +104,8 @@ describe("IncidentDrawerView", () => {
     );
 
     expect(html).toContain("lucas assumiu este incidente antes de você.");
+    expect(html).toContain("Veja abaixo como ele está agora.");
+    expect(html).not.toContain("versão");
   });
 
   it("offers a retry when saving failed", () => {

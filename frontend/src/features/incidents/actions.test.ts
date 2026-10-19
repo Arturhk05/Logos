@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   ACTION_TARGET,
   availableActions,
+  confirmationState,
   needsConfirmation,
   needsReason,
   type IncidentAction,
@@ -52,6 +53,48 @@ describe("ACTION_TARGET", () => {
       close: "CLOSED",
       inconclusive: "INCONCLUSIVE",
       reopen: "OPEN",
+    });
+  });
+});
+
+describe("confirmationState", () => {
+  const supervisor = { id: 3, role: "SUPERVISOR" } as const;
+  const investigating = { status: "INVESTIGATING", assignee: lucas } as const;
+
+  it("lets the user confirm a close with a reason", () => {
+    expect(confirmationState("close", investigating, supervisor, "Pista liberada")).toEqual({
+      unavailable: false,
+      canConfirm: true,
+    });
+  });
+
+  it("waits for a reason that is not only spaces", () => {
+    expect(confirmationState("close", investigating, supervisor, "   ")).toEqual({
+      unavailable: false,
+      canConfirm: false,
+    });
+  });
+
+  it("needs no reason to send back to the queue", () => {
+    expect(confirmationState("reopen", investigating, supervisor, "")).toEqual({
+      unavailable: false,
+      canConfirm: true,
+    });
+  });
+
+  it("blocks the action once the incident no longer allows it", () => {
+    const closed = { status: "CLOSED", assignee: lucas } as const;
+
+    expect(confirmationState("close", closed, supervisor, "Pista liberada")).toEqual({
+      unavailable: true,
+      canConfirm: false,
+    });
+  });
+
+  it("blocks the action while the incident is unknown", () => {
+    expect(confirmationState("reopen", undefined, supervisor, "")).toEqual({
+      unavailable: true,
+      canConfirm: false,
     });
   });
 });

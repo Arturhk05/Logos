@@ -26,6 +26,8 @@ export interface ActionDialogProps {
   conflict?: string;
   error?: string;
   canConfirm: boolean;
+  /** The incident changed since the dialog opened, and this action is no longer one of its options. */
+  unavailable: boolean;
 }
 
 /**
@@ -43,10 +45,17 @@ export function ActionDialog(props: ActionDialogProps) {
           if (props.canConfirm) props.onConfirm();
         }}
       >
-        {props.conflict !== undefined && (
-          <p className="flex gap-2 rounded-lg border border-warning-line bg-warning-soft px-3 py-2.5 text-sm text-warning-ink">
+        {(props.conflict !== undefined || props.unavailable) && (
+          <p
+            role="alert"
+            className="flex gap-2 rounded-lg border border-warning-line bg-warning-soft px-3 py-2.5 text-sm text-warning-ink"
+          >
             <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
-            {props.conflict}
+            <span>
+              {props.conflict}
+              {props.conflict !== undefined && props.unavailable && " "}
+              {props.unavailable && "Este incidente mudou e esta ação não está mais disponível."}
+            </span>
           </p>
         )}
 
@@ -67,6 +76,11 @@ export function ActionDialog(props: ActionDialogProps) {
               {props.reason.length}/{REASON_MAX_LENGTH}
             </span>
           </label>
+        ) : props.assignee === undefined ? (
+          <p className="text-sm">
+            O incidente volta para <strong className="font-semibold">Aberto</strong>, sem
+            responsável.
+          </p>
         ) : (
           <p className="text-sm">
             O incidente volta para <strong className="font-semibold">Aberto</strong> e{" "}

@@ -35,3 +35,15 @@ export function needsReason(action: IncidentAction): action is ReasonAction {
 export function needsConfirmation(action: IncidentAction): action is ConfirmedAction {
   return action !== "assume";
 }
+
+/** Whether a dialog's confirm button works, judged on the incident as it is now, not as it was opened. */
+export function confirmationState(
+  action: ConfirmedAction,
+  current: Pick<IncidentDetail, "status" | "assignee"> | undefined,
+  user: Pick<CurrentUser, "id" | "role">,
+  reason: string,
+): { unavailable: boolean; canConfirm: boolean } {
+  const unavailable = current === undefined || !availableActions(current, user).includes(action);
+  const reasonMissing = needsReason(action) && reason.trim() === "";
+  return { unavailable, canConfirm: !unavailable && !reasonMissing };
+}

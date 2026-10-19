@@ -1,5 +1,7 @@
 import { X } from "lucide-react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+
+import { openDialog } from "./dialog-lifecycle";
 
 const VARIANTS = {
   // Full screen on phones; a panel on the right from md up.
@@ -20,11 +22,11 @@ interface DialogProps {
 export function Dialog({ open, onClose, title, variant = "modal", children }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
 
-  useEffect(() => {
+  // A layout effect, so the cleanup closes the dialog before React removes it from the page.
+  useLayoutEffect(() => {
     const dialog = ref.current;
-    if (dialog === null) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
+    if (dialog === null || !open) return;
+    return openDialog(dialog);
   }, [open]);
 
   useEffect(() => {

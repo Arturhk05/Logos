@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 import { homePathFor, login, meQueryOptions } from "../../app/session";
@@ -12,6 +12,11 @@ export function LoginPage() {
   const location = useLocation();
   const expired = (location.state as { expired?: boolean } | null)?.expired === true;
   const [credentials, setCredentials] = useState({ username: "", password: "" });
+
+  // The previous session's screens are gone by now, so its data can go too, before anyone logs in.
+  useEffect(() => {
+    queryClient.clear();
+  }, [queryClient]);
 
   const mutation = useMutation({
     mutationFn: login,
