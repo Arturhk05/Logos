@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router";
 
 import { LoginPage } from "../features/auth/LoginPage";
+import { ReportPage } from "../features/driver/ReportPage";
 import { HistoryPage } from "../features/history/HistoryPage";
 import { QueuePage } from "../features/queue/QueuePage";
 import { CentralLayout } from "./CentralLayout";
@@ -32,7 +33,7 @@ export const router = createBrowserRouter([
           {
             element: <DriverLayout />,
             children: [
-              { path: "/reportar", element: <Placeholder title="Reportar incidente" /> },
+              { path: "/reportar", element: <ReportPage /> },
               { path: "/meus-reportes", element: <Placeholder title="Meus reportes" /> },
             ],
           },
