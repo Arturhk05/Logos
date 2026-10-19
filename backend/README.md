@@ -52,6 +52,15 @@ cp .env.example .env
 | `JWT_SECRET` | Segredo que assina os tokens de sessão. Obrigatório em produção, com pelo menos 32 caracteres | segredo fixo, aceito só fora de produção |
 | `ACCESS_TOKEN_LIFETIME_MINUTES` | Validade da sessão, em minutos | `480` (8 horas) |
 
+## Contrato da API para o frontend
+
+O frontend gera seus tipos a partir de `frontend/openapi.json`. Sempre que um schema ou uma rota mudar, exporte o contrato e gere os tipos, e commite os dois arquivos junto com a mudança:
+
+```bash
+uv run python -m scripts.export_openapi   # a partir de backend/
+npm run gen:api                           # a partir de frontend/
+```
+
 ## Executar com Docker
 
 Sobe a API e o PostgreSQL, sem precisar do uv nem do Python instalados. Execute a partir da raiz do repositório:
