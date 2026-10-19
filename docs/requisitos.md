@@ -138,7 +138,9 @@ _"Quando o meu pneu fura na estrada, eu quero reportar o incidente e acionar a c
   | Condição Climática Atípica na Pista | Média                |
   | Problema Mecânico                   | Média                |
 
-- **RN-11:** Quando um incidente sai de _Em Investigação_ para _Aberto_, o responsável é removido e o incidente volta para a fila de incidentes ativos.
+- **RN-11:** Quando um incidente sai de _Em Investigação_ para _Aberto_, o responsável é removido e o incidente volta para a fila de incidentes ativos. Quem devolve pode informar um motivo, opcional, que fica no registro de alterações (RN-12).
+
+- **RN-12:** Todo incidente tem um registro de alterações: o reporte e cada mudança de status registram quem fez, quando, o status anterior e o novo, e o motivo, quando houver. O registro só recebe novas entradas; nada nele é alterado ou apagado. Uma alteração recusada (RN-03, RN-08) não entra no registro.
 
 ## Histórias de usuário
 
@@ -215,6 +217,7 @@ _"Quando o meu pneu fura na estrada, eu quero reportar o incidente e acionar a c
 - **Dado** que o incidente foi modificado por outra pessoa depois que o carreguei, **quando** envio a alteração, **então** recebo um aviso de conflito e vejo o estado atual do incidente (RN-08).
 - **Dado** uma falha de rede durante a alteração, **quando** a atualização falha, **então** a interface volta ao estado anterior e oferece a opção "Tentar novamente".
 - **Dado** que encerro um incidente, **quando** confirmo a ação, **então** preciso informar um motivo, que fica registrado (RN-05).
+- **Dado** que sou o responsável, **quando** devolvo o incidente à fila, **então** ele volta para _Aberto_, sem responsável, e posso informar um motivo, que fica no registro de alterações (RN-11, RN-12).
 
 ### US-07: Alterar qualquer incidente como supervisor
 
@@ -229,6 +232,7 @@ _"Quando o meu pneu fura na estrada, eu quero reportar o incidente e acionar a c
 - **Dado** um incidente _Aberto_ e sem responsável, **quando** quero colocá-lo em investigação, **então** preciso assumi-lo e passo a ser o responsável (RN-02).
 - **Dado** que o incidente foi alterado por outra pessoa depois que o carreguei, **quando** envio a alteração, **então** recebo um aviso de conflito, como qualquer outro usuário (RN-08).
 - **Dado** que encerro um incidente (_Fechado_ ou _Inconclusivo_), **quando** confirmo a ação, **então** preciso informar um motivo, que fica registrado (RN-05).
+- **Dado** um incidente _Em Investigação_, **quando** o devolvo à fila, **então** posso informar um motivo, que fica no registro de alterações (RN-11, RN-12).
 
 ### US-08: Reportar incidente
 
@@ -288,6 +292,19 @@ _"Quando o meu pneu fura na estrada, eu quero reportar o incidente e acionar a c
 - **Dado** que estou no sistema, **quando** clico em "Sair", **então** minha sessão é encerrada e volto à tela de login.
 - **Dado** que minha sessão expirou, **quando** faço qualquer ação, **então** sou levado à tela de login com um aviso de que a sessão expirou.
 - **Dado** que tento acessar uma tela que meu papel não permite, **quando** a página é carregada, **então** sou redirecionado para a minha tela inicial.
+
+### US-12: Ver a linha do tempo de um incidente
+
+**Como** analista ou supervisor,
+**quero** ver quem reportou, assumiu, devolveu e encerrou um incidente, e quando,
+**para** entender o que aconteceu com ele sem precisar perguntar a ninguém.
+
+**Critérios de aceite**
+
+- **Dado** um incidente, **quando** abro seus detalhes, **então** vejo, junto com as demais informações do incidente, a linha do tempo das alterações, da mais antiga para a mais recente, com quem fez cada uma e quando (RN-12).
+- **Dado** um encerramento ou uma devolução à fila com motivo, **quando** vejo a linha do tempo, **então** o motivo aparece junto da alteração.
+- **Dado** que outra pessoa alterou o incidente enquanto eu o via, **quando** os detalhes são atualizados, **então** a nova alteração aparece na linha do tempo, sem que eu precise recarregar a página.
+- **Dado** que uma alteração foi recusada por conflito (RN-08), **quando** vejo a linha do tempo, **então** ela não aparece.
 
 ## Requisitos não funcionais
 
