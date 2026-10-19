@@ -31,7 +31,7 @@ const props: QueueViewProps = {
   onRetry: () => undefined,
   items: [victims, weather],
   counts: { HIGH: 12, MEDIUM: 41, LOW: 47 },
-  filters: { criticality: [], category: [], assignedToMe: false },
+  filters: { criticality: [], category: [], assignee: null },
   onFiltersChange: () => undefined,
   hrefFor: (id) => `/fila/${String(id)}`,
   now,
@@ -74,10 +74,7 @@ describe("QueueView", () => {
 
   it("marks the criticality filters that are on", () => {
     const html = renderView(
-      <QueueView
-        {...props}
-        filters={{ criticality: ["HIGH"], category: [], assignedToMe: false }}
-      />,
+      <QueueView {...props} filters={{ criticality: ["HIGH"], category: [], assignee: null }} />,
     );
 
     expect(html).toMatch(/aria-pressed="true"[^>]*>[\s\S]*?Alta/);
@@ -88,7 +85,7 @@ describe("QueueView", () => {
     const html = renderView(
       <QueueView
         {...props}
-        filters={{ criticality: ["HIGH", "LOW"], category: [], assignedToMe: false }}
+        filters={{ criticality: ["HIGH", "LOW"], category: [], assignee: null }}
       />,
     );
 
@@ -159,7 +156,7 @@ describe("QueueView", () => {
       <QueueView
         {...props}
         items={[]}
-        filters={{ criticality: ["LOW"], category: [], assignedToMe: false }}
+        filters={{ criticality: ["LOW"], category: [], assignee: null }}
       />,
     );
 
@@ -167,19 +164,21 @@ describe("QueueView", () => {
     expect(html).toContain("Limpar filtros");
   });
 
-  it("marks the assigned-to-me filter when it is on", () => {
-    const off = renderView(<QueueView {...props} />);
-    const on = renderView(
-      <QueueView {...props} filters={{ criticality: [], category: [], assignedToMe: true }} />,
+  it.each([
+    [null, "Todos"],
+    ["none", "Sem responsável"],
+    ["me", "Assumidos por mim"],
+  ] as const)("marks only the %s assignee option as chosen", (assignee, chosen) => {
+    const html = renderView(
+      <QueueView {...props} filters={{ criticality: [], category: [], assignee }} />,
     );
 
     // Within a single button, so the pressed state of another filter cannot match.
-    const assignedToMe = (pressed: boolean) =>
-      new RegExp(
-        `<button[^>]*aria-pressed="${String(pressed)}"[^>]*>(?:(?!</button>).)*Assumidos por mim`,
-      );
-    expect(off).toMatch(assignedToMe(false));
-    expect(on).toMatch(assignedToMe(true));
+    const option = (label: string, pressed: boolean) =>
+      new RegExp(`<button[^>]*aria-pressed="${String(pressed)}"[^>]*>(?:(?!</button>).)*${label}`);
+    for (const label of ["Todos", "Sem responsável", "Assumidos por mim"]) {
+      expect(html).toMatch(option(label, label === chosen));
+    }
   });
 
   it("offers to clear the filters when nothing is assigned to me", () => {
@@ -187,7 +186,7 @@ describe("QueueView", () => {
       <QueueView
         {...props}
         items={[]}
-        filters={{ criticality: [], category: [], assignedToMe: true }}
+        filters={{ criticality: [], category: [], assignee: "me" }}
       />,
     );
 

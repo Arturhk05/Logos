@@ -1,4 +1,3 @@
-import { UserCheck } from "lucide-react";
 import { Link } from "react-router";
 
 import { formatElapsed } from "../../shared/format";
@@ -9,8 +8,8 @@ import { CriticalityBadge } from "../../shared/ui/CriticalityBadge";
 import { TableSkeleton } from "../../shared/ui/Skeleton";
 import { EmptyState, ErrorState } from "../../shared/ui/StateMessage";
 import { StatusLabel } from "../../shared/ui/StatusLabel";
-import { ToggleButton } from "../../shared/ui/ToggleButton";
 import type { QueueItem } from "./api";
+import { AssigneeOptions } from "./AssigneeOptions";
 import { CategoryFilter } from "./CategoryFilter";
 import { CriticalityCounters } from "./CriticalityCounters";
 import { hasFilters, toggle, type QueueFilters } from "./filters";
@@ -32,7 +31,7 @@ export interface QueueViewProps {
   onRefresh: () => void;
 }
 
-const NO_FILTERS: QueueFilters = { criticality: [], category: [], assignedToMe: false };
+const NO_FILTERS: QueueFilters = { criticality: [], category: [], assignee: null };
 
 export function QueueView(props: QueueViewProps) {
   const { filters, onFiltersChange } = props;
@@ -67,15 +66,12 @@ export function QueueView(props: QueueViewProps) {
             onFiltersChange({ ...filters, category });
           }}
         />
-        <ToggleButton
-          pressed={filters.assignedToMe}
-          onToggle={() => {
-            onFiltersChange({ ...filters, assignedToMe: !filters.assignedToMe });
+        <AssigneeOptions
+          selected={filters.assignee}
+          onChange={(assignee) => {
+            onFiltersChange({ ...filters, assignee });
           }}
-        >
-          <UserCheck aria-hidden className={`size-4 ${filters.assignedToMe ? "" : "text-muted"}`} />
-          Assumidos por mim
-        </ToggleButton>
+        />
         {filtered && (
           <Button variant="ghost" onClick={clearFilters}>
             Limpar filtros

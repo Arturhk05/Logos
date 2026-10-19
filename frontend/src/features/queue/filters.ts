@@ -11,8 +11,12 @@ export interface IncidentFilters {
   category: IncidentCategory[];
 }
 
+/** "me": assigned to whoever is logged in; "none": nobody has taken it yet. */
+export type AssigneeFilter = "me" | "none";
+const ASSIGNEE_FILTERS: readonly AssigneeFilter[] = ["me", "none"];
+
 export interface QueueFilters extends IncidentFilters {
-  assignedToMe: boolean;
+  assignee: AssigneeFilter | null;
 }
 
 export function parseIncidentFilters(params: URLSearchParams): IncidentFilters {
@@ -30,13 +34,13 @@ export function incidentSearchParams(filters: IncidentFilters): URLSearchParams 
 }
 
 export function parseQueueFilters(params: URLSearchParams): QueueFilters {
-  // Any value other than "true" turns the filter off, so a hand-edited URL never breaks the queue.
-  return { ...parseIncidentFilters(params), assignedToMe: params.get("assigned_to_me") === "true" };
+  const [assignee = null] = pick([params.get("assignee") ?? ""], ASSIGNEE_FILTERS);
+  return { ...parseIncidentFilters(params), assignee };
 }
 
 export function queueSearchParams(filters: QueueFilters): URLSearchParams {
   const params = incidentSearchParams(filters);
-  if (filters.assignedToMe) params.set("assigned_to_me", "true");
+  if (filters.assignee !== null) params.set("assignee", filters.assignee);
   return params;
 }
 
@@ -49,7 +53,7 @@ export function hasIncidentFilters(filters: IncidentFilters): boolean {
 }
 
 export function hasFilters(filters: QueueFilters): boolean {
-  return hasIncidentFilters(filters) || filters.assignedToMe;
+  return hasIncidentFilters(filters) || filters.assignee !== null;
 }
 
 // A hand-edited URL never reaches the API with a value it would reject.

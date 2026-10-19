@@ -19,7 +19,7 @@ export function queueQueryOptions(filters: QueueFilters) {
             query: {
               criticality: filters.criticality.length > 0 ? filters.criticality : undefined,
               category: filters.category.length > 0 ? filters.category : undefined,
-              assigned_to_me: filters.assignedToMe ? true : undefined,
+              assignee: filters.assignee ?? undefined,
             },
           },
           signal,

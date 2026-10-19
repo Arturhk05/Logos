@@ -22,13 +22,13 @@ describe("queueQueryOptions", () => {
       queueQueryOptions({
         criticality: ["HIGH", "LOW"],
         category: ["ROAD_BLOCKAGE"],
-        assignedToMe: true,
+        assignee: "me",
       }),
     );
 
     expect(url.searchParams.getAll("criticality")).toEqual(["HIGH", "LOW"]);
     expect(url.searchParams.getAll("category")).toEqual(["ROAD_BLOCKAGE"]);
-    expect(url.searchParams.get("assigned_to_me")).toBe("true");
+    expect(url.searchParams.get("assignee")).toBe("me");
   });
 
   it("asks for every active incident without filters", async () => {
@@ -41,7 +41,7 @@ describe("queueQueryOptions", () => {
     );
 
     await new QueryClient().query(
-      queueQueryOptions({ criticality: [], category: [], assignedToMe: false }),
+      queueQueryOptions({ criticality: [], category: [], assignee: null }),
     );
 
     expect(url.search).toBe("");
