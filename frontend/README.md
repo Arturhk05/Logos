@@ -24,6 +24,30 @@ Execute a partir de `frontend/`:
 | `npm run build`        | Gera a versão de produção em `dist/`            |
 | `npm run gen:api`      | Gera os tipos da API a partir de `openapi.json` |
 
+## Estrutura
+
+O código é organizado por funcionalidade, como no backend:
+
+```
+src/
+├── api/        # cliente HTTP, erros tipados e tipos gerados do contrato da API
+├── app/        # rotas, sessão e barras de navegação
+├── features/   # uma pasta por área: login, fila, incidentes, histórico, motorista
+├── shared/     # rótulos, formatação e componentes usados por mais de uma tela (shared/ui)
+└── test/       # MSW e utilitários de teste
+```
+
+As cores ficam como variáveis em `src/index.css` (`bg-surface`, `text-ink`, `bg-critical`...). O vermelho (`critical`) é reservado à criticidade Alta, e a criticidade sempre aparece com ícone e texto.
+
+## Testes de tela
+
+Os testes rodam no ambiente `node` do Vitest, sem um DOM simulado: o `fetch` do Node recusa o `AbortSignal` do `jsdom`, que o cliente usa para os tempos limite. Por isso cada tela separa:
+
+- a lógica (filtros, ações permitidas, validação) e as chamadas à API, em arquivos `.ts`, testados com MSW;
+- a visualização (`*View.tsx`), que só recebe props e é testada em cada estado (carregando, erro, vazio, com dados) com `renderView` de `src/test/render.tsx`.
+
+Cliques, foco e a tecla Esc são conferidos no navegador.
+
 ## Comunicação com a API
 
 - Em desenvolvimento, o Vite repassa as chamadas a `/api` para `http://localhost:8000`. Assim, a interface e a API ficam na mesma origem, como em produção, e o cookie de sessão funciona sem configuração extra. Use Chrome ou Firefox: o Safari não aceita o cookie seguro em `http://localhost`.
