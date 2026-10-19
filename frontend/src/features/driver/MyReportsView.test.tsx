@@ -32,6 +32,40 @@ describe("MyReportsView", () => {
     }
   });
 
+  it("tells in plain words where each report in progress stands", () => {
+    const waiting: QueueItem = { ...mechanical, id: 150, status: "OPEN", assignee: null };
+    const html = renderView(<MyReportsView {...props} items={[waiting, mechanical]} />);
+
+    expect(html).toContain("Em andamento");
+    expect(html).toContain("Aguardando a central");
+    expect(html).toContain("Seu reporte chegou");
+    expect(html).toContain("A central está cuidando");
+    expect(html).toContain("WhatsApp");
+    expect(html).not.toContain("Encerrados");
+  });
+
+  it("keeps closed reports apart, after the ones in progress", () => {
+    const closed: QueueItem = { ...mechanical, id: 120, status: "CLOSED" };
+    const inconclusive: QueueItem = { ...mechanical, id: 110, status: "INCONCLUSIVE" };
+    const html = renderView(
+      <MyReportsView {...props} items={[closed, mechanical, inconclusive]} />,
+    );
+
+    const order = ["Em andamento", "#142", "Encerrados", "#120", "#110"].map((text) =>
+      html.indexOf(text),
+    );
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(order).not.toContain(-1);
+  });
+
+  it("says nothing is in progress when every report is closed", () => {
+    const closed: QueueItem = { ...mechanical, status: "CLOSED" };
+    const html = renderView(<MyReportsView {...props} items={[closed]} />);
+
+    expect(html).toContain("Nenhum reporte em andamento.");
+    expect(html).toContain("Encerrados");
+  });
+
   it("offers to report when there is nothing yet", () => {
     const html = renderView(<MyReportsView {...props} items={[]} />);
 
