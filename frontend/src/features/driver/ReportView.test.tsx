@@ -46,6 +46,16 @@ describe("ReportView", () => {
     expect(html).toMatch(/<button[^>]*class="[^"]*min-h-11/);
   });
 
+  it("gives every category button the same height, in one column on very narrow phones", () => {
+    const html = renderView(<ReportView {...props} />);
+    const grid =
+      /<div class="([^"]*grid[^"]*)"><button[^>]*aria-pressed/.exec(html)?.[1]?.split(" ") ?? [];
+
+    expect(grid).toContain("auto-rows-fr");
+    expect(grid).toContain("grid-cols-1");
+    expect(grid).toContain("min-[360px]:grid-cols-2");
+  });
+
   it("marks the chosen category and criticality", () => {
     const html = renderView(
       <ReportView

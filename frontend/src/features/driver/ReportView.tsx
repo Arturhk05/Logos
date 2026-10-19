@@ -34,7 +34,7 @@ const INPUT =
 
 // Every choice is at least 44 px tall (RNF-07), on a phone held with one hand.
 const CHOICE =
-  "flex min-h-11 items-center gap-2 rounded-xl border px-3 text-left text-sm transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40";
+  "flex min-h-11 items-center gap-2 rounded-xl border px-3 text-left transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40";
 
 function choiceLook(pressed: boolean, critical = false): string {
   if (!pressed) return "border-line bg-surface hover:border-line-strong";
@@ -70,13 +70,15 @@ export function ReportView(props: ReportViewProps) {
           <ErrorState message={props.categoriesError ?? ""} onRetry={props.onRetryCategories} />
         )}
         {props.categoriesState === "ready" && (
-          <div className="grid grid-cols-2 gap-2">
+          // Every row as tall as the tallest, so all buttons match; one column on very narrow phones,
+          // where the longest name would otherwise wrap into four lines.
+          <div className="grid auto-rows-fr grid-cols-1 gap-2 min-[360px]:grid-cols-2">
             {props.options.map((option) => (
               <button
                 key={option.category}
                 type="button"
                 aria-pressed={draft.category === option.category}
-                className={`${CHOICE} ${choiceLook(draft.category === option.category)}`}
+                className={`${CHOICE} text-[13px] leading-snug ${choiceLook(draft.category === option.category)}`}
                 onClick={() => {
                   props.onCategory(option);
                 }}
@@ -99,7 +101,7 @@ export function ReportView(props: ReportViewProps) {
               type="button"
               aria-pressed={draft.criticality === criticality}
               disabled={draft.category === null || (locked && criticality !== "HIGH")}
-              className={`${CHOICE} justify-center ${choiceLook(
+              className={`${CHOICE} justify-center text-sm ${choiceLook(
                 draft.criticality === criticality,
                 criticality === "HIGH",
               )}`}
