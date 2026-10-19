@@ -95,8 +95,23 @@ def test_invalid_request_logs_the_invalid_fields_without_their_values(caplog: py
     assert "s3cr3t-value" not in caplog.text
 
 
-def test_unknown_route_keeps_default_not_found(client: TestClient) -> None:
+def test_unknown_route_returns_not_found_in_portuguese(client: TestClient) -> None:
     response = client.get("/api/does-not-exist")
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
-    assert response.json() == {"detail": "Not Found"}
+    assert response.json() == {"detail": "Não encontramos o que você procurava."}
+
+
+def test_id_that_does_not_match_the_route_returns_not_found_in_portuguese(client: TestClient) -> None:
+    response = client.get("/api/incidents/abc")
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json() == {"detail": "Não encontramos o que você procurava."}
+
+
+def test_wrong_method_keeps_its_status_and_allow_header_with_a_generic_message(client: TestClient) -> None:
+    response = client.delete("/api/health")
+
+    assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
+    assert response.headers["allow"] == "GET"
+    assert response.json() == {"detail": "Ocorreu um erro inesperado. Tente novamente em instantes."}
