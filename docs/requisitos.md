@@ -263,6 +263,8 @@ _"Quando o meu pneu fura na estrada, eu quero reportar o incidente e acionar a c
 
 - **Dado** que reportei incidentes, **quando** acesso "Meus reportes", **então** vejo apenas os meus incidentes, do mais recente para o mais antigo (RN-06).
 - **Dado** que um analista assumiu meu incidente, **quando** vejo a lista, **então** o status aparece como _Em Investigação_.
+- **Dado** que tenho reportes _Abertos_ ou _Em Investigação_, **quando** acesso "Meus reportes", **então** eles aparecem em destaque, separados dos encerrados, com uma frase simples dizendo se a central ainda vai assumir ou se já está cuidando.
+- **Dado** que todos os meus reportes estão encerrados, **quando** acesso "Meus reportes", **então** vejo que não há nenhum reporte em andamento.
 - **Dado** que ainda não reportei nenhum incidente, **quando** acesso "Meus reportes", **então** vejo um estado vazio com um atalho para reportar.
 
 ### US-10: Consultar histórico de incidentes encerrados
@@ -333,6 +335,21 @@ _"Quando o meu pneu fura na estrada, eu quero reportar o incidente e acionar a c
 - **Dado** que ativei o filtro, **quando** recarrego a página ou compartilho a URL, **então** o filtro é mantido.
 - **Dado** que o filtro está ativo, **quando** olho os contadores por criticidade, **então** eles continuam mostrando todos os incidentes ativos.
 - **Dado** que não assumi nenhum incidente, **quando** ativo o filtro, **então** vejo um estado vazio com a opção de limpar os filtros.
+
+### US-15: Ver os incidentes sem responsável
+
+**Como** analista ou supervisor,
+**quero** filtrar a fila pelos incidentes que ninguém assumiu,
+**para** começar o turno pelo que ainda não tem ninguém cuidando.
+
+**Critérios de aceite**
+
+- **Dado** que escolho "Sem responsável", **quando** a fila é exibida, **então** vejo apenas os incidentes ativos sem responsável.
+- **Dado** que escolho "Sem responsável", **quando** olho as opções de responsável, **então** "Assumidos por mim" fica desmarcado, porque as duas opções não podem ser usadas juntas.
+- **Dado** que combino esse filtro com criticidade e categoria, **quando** aplico, **então** são exibidos apenas incidentes que atendem a todos.
+- **Dado** que ativei o filtro, **quando** recarrego a página ou compartilho a URL, **então** o filtro é mantido.
+- **Dado** que o filtro está ativo, **quando** olho os contadores por criticidade, **então** eles continuam mostrando todos os incidentes ativos.
+- **Dado** que todos os incidentes ativos têm responsável, **quando** ativo o filtro, **então** vejo um estado vazio com a opção de limpar os filtros.
 
 ## Requisitos não funcionais
 

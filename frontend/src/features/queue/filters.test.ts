@@ -9,17 +9,17 @@ describe("parseQueueFilters", () => {
     expect(parseQueueFilters(params)).toEqual({
       criticality: ["HIGH", "LOW"],
       category: ["ROAD_BLOCKAGE"],
-      assignedToMe: false,
+      assignee: null,
     });
   });
 
   it.each([
-    ["assigned_to_me=true", true],
-    ["", false],
-    ["assigned_to_me=false", false],
-    ["assigned_to_me=talvez", false],
-  ])("reads %j as assigned to me = %s", (query, expected) => {
-    expect(parseQueueFilters(new URLSearchParams(query)).assignedToMe).toBe(expected);
+    ["assignee=me", "me"],
+    ["assignee=none", "none"],
+    ["", null],
+    ["assignee=lucas", null],
+  ])("reads %j as assignee %s", (query, expected) => {
+    expect(parseQueueFilters(new URLSearchParams(query)).assignee).toBe(expected);
   });
 
   it("ignores unknown and repeated values", () => {
@@ -30,7 +30,7 @@ describe("parseQueueFilters", () => {
     expect(parseQueueFilters(params)).toEqual({
       criticality: ["HIGH"],
       category: [],
-      assignedToMe: false,
+      assignee: null,
     });
   });
 });
@@ -40,23 +40,27 @@ describe("queueSearchParams", () => {
     const params = queueSearchParams({
       criticality: ["HIGH", "MEDIUM"],
       category: [],
-      assignedToMe: false,
+      assignee: null,
     });
 
     expect(params.toString()).toBe("criticality=HIGH&criticality=MEDIUM");
   });
 
   it("writes nothing without filters", () => {
-    expect(
-      queueSearchParams({ criticality: [], category: [], assignedToMe: false }).toString(),
-    ).toBe("");
+    expect(queueSearchParams({ criticality: [], category: [], assignee: null }).toString()).toBe(
+      "",
+    );
   });
 
-  it("writes assigned to me only when it is on, and reads it back", () => {
-    const filters = { criticality: [], category: ["ROAD_BLOCKAGE" as const], assignedToMe: true };
+  it("writes the assignee only when it is set, and reads it back", () => {
+    const filters = {
+      criticality: [],
+      category: ["ROAD_BLOCKAGE" as const],
+      assignee: "none" as const,
+    };
     const params = queueSearchParams(filters);
 
-    expect(params.toString()).toBe("category=ROAD_BLOCKAGE&assigned_to_me=true");
+    expect(params.toString()).toBe("category=ROAD_BLOCKAGE&assignee=none");
     expect(parseQueueFilters(params)).toEqual(filters);
   });
 });
@@ -70,10 +74,9 @@ describe("toggle", () => {
 
 describe("hasFilters", () => {
   it("tells whether any filter is on", () => {
-    expect(hasFilters({ criticality: [], category: [], assignedToMe: false })).toBe(false);
-    expect(hasFilters({ criticality: [], category: ["ROAD_BLOCKAGE"], assignedToMe: false })).toBe(
-      true,
-    );
-    expect(hasFilters({ criticality: [], category: [], assignedToMe: true })).toBe(true);
+    expect(hasFilters({ criticality: [], category: [], assignee: null })).toBe(false);
+    expect(hasFilters({ criticality: [], category: ["ROAD_BLOCKAGE"], assignee: null })).toBe(true);
+    expect(hasFilters({ criticality: [], category: [], assignee: "me" })).toBe(true);
+    expect(hasFilters({ criticality: [], category: [], assignee: "none" })).toBe(true);
   });
 });

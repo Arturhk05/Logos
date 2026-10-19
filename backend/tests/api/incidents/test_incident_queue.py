@@ -111,17 +111,38 @@ def test_queue_shows_only_incidents_assigned_to_me(db_client: TestClient, db_ses
     create_incident(db_session, driver, status=IncidentStatus.INVESTIGATING, assignee_id=lucas.id)
     create_incident(db_session, driver)
 
-    response = db_client.get("/api/incidents", params={"assigned_to_me": "true"})
+    response = db_client.get("/api/incidents", params={"assignee": "me"})
 
     assert response.status_code == status.HTTP_200_OK
     assert [item["id"] for item in response.json()["items"]] == [mine.id]
     assert sum(response.json()["counts"].values()) == 3
 
 
+def test_queue_shows_only_unassigned_incidents(db_client: TestClient, db_session: Session, login_as: LoginAs) -> None:
+    camila = login_as(UserRole.ANALYST, "camila")
+    driver = create_user(db_session, UserRole.DRIVER)
+    create_incident(db_session, driver, status=IncidentStatus.INVESTIGATING, assignee_id=camila.id)
+    waiting = create_incident(db_session, driver)
+
+    response = db_client.get("/api/incidents", params={"assignee": "none"})
+
+    assert response.status_code == status.HTTP_200_OK
+    assert [item["id"] for item in response.json()["items"]] == [waiting.id]
+    assert sum(response.json()["counts"].values()) == 2
+
+
+def test_queue_rejects_an_unknown_assignee_filter(db_client: TestClient, login_as: LoginAs) -> None:
+    login_as(UserRole.ANALYST, "camila")
+
+    response = db_client.get("/api/incidents", params={"assignee": "lucas"})
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
 def test_driver_cannot_filter_the_queue(db_client: TestClient, login_as: LoginAs) -> None:
     login_as(UserRole.DRIVER, "jose")
 
-    response = db_client.get("/api/incidents", params={"assigned_to_me": "true"})
+    response = db_client.get("/api/incidents", params={"assignee": "me"})
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
 
