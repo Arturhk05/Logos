@@ -22,16 +22,14 @@ Os analistas e o supervisor também consultam o histórico paginado dos incident
 
 ## Como rodar localmente
 
-Pré-requisitos: [Docker](https://docs.docker.com/get-docker/) e [Node.js](https://nodejs.org/) 24.
+Pré-requisito: [Docker](https://docs.docker.com/get-docker/). Na raiz do repositório:
 
 ```bash
-docker compose up -d --build   # banco, migrations, dados de demonstração e API em http://localhost:8000
-cd frontend
-npm install
-npm run dev                    # interface em http://localhost:5173
+docker compose up -d --build   # aplicação em http://localhost:8080
+docker compose down            # para tudo, mantendo os dados (com -v, apaga os dados)
 ```
 
-O `docker compose` só sobe a API depois que o banco está saudável e as migrations e o seed terminaram. A interface repassa as chamadas a `/api` para a API, como em produção, então o login funciona sem configuração extra (use Chrome ou Firefox: o Safari não aceita o cookie seguro em `http://localhost`).
+O `docker compose` sobe, nesta ordem, o PostgreSQL, as migrations com os dados de demonstração, a API e a interface. A interface roda como em produção: o build do React servido por um nginx, que repassa `/api` para a API no mesmo endereço, então o login funciona sem configuração extra. Use Chrome ou Firefox: o Safari não aceita o cookie seguro em `http://localhost`.
 
 Para desenvolver com recarga automática, rodar os testes e as verificações de código, veja o [`backend/README.md`](backend/README.md) e o [`frontend/README.md`](frontend/README.md).
 

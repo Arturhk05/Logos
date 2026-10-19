@@ -55,6 +55,10 @@ Cliques, foco e a tecla Esc são conferidos no navegador.
 - `src/api/client.ts` faz as chamadas e transforma qualquer falha em um `ApiError`, com uma mensagem pronta para o usuário.
 - `src/api/query-client.ts` define quando uma leitura é repetida: só em falhas temporárias (sem conexão, servidor indisponível, limite de requisições), até 3 vezes e com espera crescente. Alterações nunca são repetidas automaticamente.
 
+## Executar com Docker
+
+O `docker compose up -d --build`, na raiz do repositório, sobe banco, API e interface em http://localhost:8080, sem precisar do Node instalado. A imagem gera o mesmo build da produção e o serve com nginx ([`nginx.conf`](nginx.conf)), que faz o papel do CloudFront: repassa `/api` para a API e responde as rotas do React com o `index.html` (ADR-09). Para desenvolver, com recarga automática, use `npm run dev`.
+
 ## Deploy
 
 Um push na `main` que altere `frontend/` publica a interface pelo workflow [`deploy-frontend.yml`](../.github/workflows/deploy-frontend.yml): as mesmas verificações do CI, o build enviado ao S3 e a invalidação do cache do CloudFront. Os passos e a configuração da AWS estão em [`docs/deploy.md`](../docs/deploy.md), e a forma como o CloudFront entrega as rotas do React, sem alterar as respostas da API, na [ADR-09](../docs/adr/ADR-09-rotas-do-frontend-no-cloudfront.md).

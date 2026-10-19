@@ -65,11 +65,12 @@ O CI falha se algum dos dois estiver desatualizado.
 
 ## Executar com Docker
 
-Sobe a API e o PostgreSQL, sem precisar do uv nem do Python instalados. Execute a partir da raiz do repositório:
+Sobe a API e o PostgreSQL, sem precisar do uv nem do Python instalados, e também a interface em http://localhost:8080 (veja o `frontend/README.md`). Execute a partir da raiz do repositório:
 
 | Comando | O que faz |
 |---|---|
-| `docker compose up -d --build` | Constrói a imagem da API e sobe API e banco em segundo plano |
+| `docker compose up -d --build` | Constrói as imagens e sobe banco, API e interface em segundo plano |
+| `docker compose up -d --build api` | Sobe só o banco e a API |
 | `docker compose ps` | Mostra o estado dos containers (devem aparecer como `healthy`) |
 | `docker compose logs -f api` | Acompanha os logs da API |
 | `docker compose down` | Para os containers, mantendo os dados |
