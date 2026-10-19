@@ -16,10 +16,12 @@ interface UpdatedAgoProps {
   onRefresh: () => void;
 }
 
-/** Tells the analyst the list is live, or that it stopped updating; a click refreshes it right away. */
+/**
+ * Tells the analyst the list is live, or that it stopped updating; a click refreshes it right away.
+ * Always rendered: while a new filter loads there is no date yet, and hiding it made the header jump.
+ */
 export function UpdatedAgo({ updatedAt, failed, refreshing, onRefresh }: UpdatedAgoProps) {
   const now = useNow(1000);
-  if (updatedAt === undefined) return null;
 
   const Icon = failed && !refreshing ? WifiOff : RefreshCw;
   return (
@@ -34,9 +36,11 @@ export function UpdatedAgo({ updatedAt, failed, refreshing, onRefresh }: Updated
       }`}
     >
       <Icon aria-hidden className={`size-3.5 ${refreshing ? "animate-spin" : ""}`} />
-      {failed
-        ? `Não foi possível atualizar. Última atualização ${since(updatedAt, now)}.`
-        : `Atualizado ${since(updatedAt, now)}`}
+      {updatedAt === undefined
+        ? "Atualizando…"
+        : failed
+          ? `Não foi possível atualizar. Última atualização ${since(updatedAt, now)}.`
+          : `Atualizado ${since(updatedAt, now)}`}
     </button>
   );
 }

@@ -107,6 +107,12 @@ describe("QueueView", () => {
     expect(html).toMatch(/<button[^>]*>(?:(?!<\/button>)[\s\S])*Atualizado agora/);
   });
 
+  it("keeps the refresh button while new data has no date yet, so the header does not jump", () => {
+    const html = renderView(<QueueView {...props} updatedAt={undefined} refreshing />);
+
+    expect(html).toMatch(/<button[^>]*>(?:(?!<\/button>)[\s\S])*Atualizando…/);
+  });
+
   it("shows that the queue is refreshing", () => {
     expect(renderView(<QueueView {...props} refreshing />)).toMatch(
       /<button[^>]*aria-busy="true"[^>]*>(?:(?!<\/button>)[\s\S])*Atualizado/,
