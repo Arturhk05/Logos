@@ -29,4 +29,6 @@ export function reportIncident(
 export const myReportsQueryOptions = queryOptions({
   queryKey: ["incidents", "mine"],
   queryFn: ({ signal }) => request(api.GET("/api/incidents/mine", { signal })),
+  // The driver sees the central take over a report without reloading (US-09).
+  refetchInterval: 30_000,
 });

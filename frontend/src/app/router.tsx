@@ -1,12 +1,12 @@
 import { createBrowserRouter } from "react-router";
 
 import { LoginPage } from "../features/auth/LoginPage";
+import { MyReportsPage } from "../features/driver/MyReportsPage";
 import { ReportPage } from "../features/driver/ReportPage";
 import { HistoryPage } from "../features/history/HistoryPage";
 import { QueuePage } from "../features/queue/QueuePage";
 import { CentralLayout } from "./CentralLayout";
 import { DriverLayout } from "./DriverLayout";
-import { Placeholder } from "./Placeholder";
 import { HomeRedirect, RequireRole } from "./RequireRole";
 import { SessionGate } from "./SessionGate";
 
@@ -34,7 +34,7 @@ export const router = createBrowserRouter([
             element: <DriverLayout />,
             children: [
               { path: "/reportar", element: <ReportPage /> },
-              { path: "/meus-reportes", element: <Placeholder title="Meus reportes" /> },
+              { path: "/meus-reportes", element: <MyReportsPage /> },
             ],
           },
         ],
