@@ -46,3 +46,28 @@ class Incident(Base):
     reporter: Mapped[User] = relationship(foreign_keys=[reporter_id])
     assignee: Mapped[User | None] = relationship(foreign_keys=[assignee_id])
     closed_by: Mapped[User | None] = relationship(foreign_keys=[closed_by_id])
+    events: Mapped[list[IncidentEvent]] = relationship(
+        back_populates="incident", order_by=lambda: (IncidentEvent.created_at, IncidentEvent.id)
+    )
+
+
+class IncidentEvent(Base):
+    """One change to an incident: its report (no previous status) or a status change. Rows are never updated."""
+
+    __tablename__ = "incident_events"
+    __table_args__ = (
+        enum_check("from_status", IncidentStatus),
+        enum_check("to_status", IncidentStatus),
+        Index("ix_incident_events_incident_id_created_at", "incident_id", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    incident_id: Mapped[int] = mapped_column(ForeignKey("incidents.id"))
+    actor_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    from_status: Mapped[IncidentStatus | None] = mapped_column(Enum(IncidentStatus, native_enum=False, length=20))
+    to_status: Mapped[IncidentStatus] = mapped_column(Enum(IncidentStatus, native_enum=False, length=20))
+    reason: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    incident: Mapped[Incident] = relationship(back_populates="events")
+    actor: Mapped[User] = relationship()

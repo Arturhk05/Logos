@@ -22,6 +22,7 @@ const incident: IncidentDetail = {
   closure_reason: null,
   created_at: "2026-10-18T09:00:00Z",
   updated_at: "2026-10-18T09:10:00Z",
+  events: [],
 };
 
 describe("assumeIncident", () => {
@@ -82,6 +83,20 @@ describe("changeStatus", () => {
     );
 
     expect(body).toEqual({ version: 4, status: "CLOSED", reason: "Pista liberada" });
+  });
+
+  it("leaves the reason out when there is none", async () => {
+    let body: unknown;
+    server.use(
+      http.patch(`${API}/incidents/7/status`, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ ...incident, version: 5 });
+      }),
+    );
+
+    await changeStatus({ ...incident, version: 4, status: "INVESTIGATING" }, "OPEN");
+
+    expect(body).toEqual({ version: 4, status: "OPEN" });
   });
 
   it("sends no reason when sending the incident back to the queue", async () => {

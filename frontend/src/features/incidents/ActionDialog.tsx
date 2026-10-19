@@ -2,14 +2,26 @@ import { CircleAlert, TriangleAlert } from "lucide-react";
 
 import { Button } from "../../shared/ui/Button";
 import { Dialog } from "../../shared/ui/Dialog";
-import { needsReason, type ConfirmedAction } from "./actions";
+import { acceptsReason, needsReason, type ConfirmedAction } from "./actions";
 
 const REASON_MAX_LENGTH = 500;
 
-const COPY: Record<ConfirmedAction, { title: string; confirm: string }> = {
-  close: { title: "Fechar incidente", confirm: "Fechar incidente" },
-  inconclusive: { title: "Marcar como inconclusivo", confirm: "Marcar como inconclusivo" },
-  reopen: { title: "Devolver à fila?", confirm: "Devolver à fila" },
+const COPY: Record<ConfirmedAction, { title: string; confirm: string; example: string }> = {
+  close: {
+    title: "Fechar incidente",
+    confirm: "Fechar incidente",
+    example: "Ex.: pista liberada pela concessionária.",
+  },
+  inconclusive: {
+    title: "Marcar como inconclusivo",
+    confirm: "Marcar como inconclusivo",
+    example: "Ex.: pista liberada pela concessionária.",
+  },
+  reopen: {
+    title: "Devolver à fila?",
+    confirm: "Devolver à fila",
+    example: "Ex.: analista saiu do turno.",
+  },
 };
 
 export interface ActionDialogProps {
@@ -32,7 +44,7 @@ export interface ActionDialogProps {
 
 /**
  * Confirms a status change. Closing always records why (RN-05); sending back to the queue warns that
- * the assignee leaves (RN-11). A conflict or a failure keeps what was typed.
+ * the assignee leaves and takes an optional reason (RN-11). A conflict or a failure keeps what was typed.
  */
 export function ActionDialog(props: ActionDialogProps) {
   const copy = COPY[props.action];
@@ -59,24 +71,7 @@ export function ActionDialog(props: ActionDialogProps) {
           </p>
         )}
 
-        {needsReason(props.action) ? (
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Motivo
-            <textarea
-              className="min-h-28 rounded-lg border border-line bg-surface p-3 font-normal text-ink focus:border-accent focus:outline-none"
-              maxLength={REASON_MAX_LENGTH}
-              required
-              value={props.reason}
-              placeholder="Ex.: pista liberada pela concessionária."
-              onChange={(event) => {
-                props.onReasonChange(event.target.value);
-              }}
-            />
-            <span className="self-end text-xs font-normal text-muted tabular-nums">
-              {props.reason.length}/{REASON_MAX_LENGTH}
-            </span>
-          </label>
-        ) : props.assignee === undefined ? (
+        {needsReason(props.action) ? null : props.assignee === undefined ? (
           <p className="text-sm">
             O incidente volta para <strong className="font-semibold">Aberto</strong>, sem
             responsável.
@@ -87,6 +82,25 @@ export function ActionDialog(props: ActionDialogProps) {
             {props.assigneeIsUser ? "você" : <strong>{props.assignee}</strong>} deixa de ser o
             responsável. Qualquer analista poderá assumi-lo.
           </p>
+        )}
+
+        {acceptsReason(props.action) && (
+          <label className="flex flex-col gap-1.5 text-sm font-medium">
+            {needsReason(props.action) ? "Motivo" : "Motivo (opcional)"}
+            <textarea
+              className="min-h-28 rounded-lg border border-line bg-surface p-3 font-normal text-ink focus:border-accent focus:outline-none"
+              maxLength={REASON_MAX_LENGTH}
+              required={needsReason(props.action)}
+              value={props.reason}
+              placeholder={copy.example}
+              onChange={(event) => {
+                props.onReasonChange(event.target.value);
+              }}
+            />
+            <span className="self-end text-xs font-normal text-muted tabular-nums">
+              {props.reason.length}/{REASON_MAX_LENGTH}
+            </span>
+          </label>
         )}
 
         {/* Always rendered with room for one line, so a message never moves the buttons. */}

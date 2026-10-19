@@ -251,6 +251,8 @@ export interface components {
             criticality: components["schemas"]["Criticality"];
             /** Description */
             description: string;
+            /** Events */
+            events: components["schemas"]["IncidentEventResponse"][];
             /** Id */
             id: number;
             /** Location */
@@ -264,6 +266,22 @@ export interface components {
             updated_at: string;
             /** Version */
             version: number;
+        };
+        /**
+         * IncidentEventResponse
+         * @description One entry of the incident's change log (RN-12). No previous status means the report.
+         */
+        IncidentEventResponse: {
+            actor: components["schemas"]["UserSummary"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            from_status: components["schemas"]["IncidentStatus"] | null;
+            /** Reason */
+            reason: string | null;
+            to_status: components["schemas"]["IncidentStatus"];
         };
         /** IncidentHistoryItem */
         IncidentHistoryItem: {

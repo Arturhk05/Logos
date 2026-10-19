@@ -27,6 +27,8 @@ describe("ActionDialog when closing", () => {
     const html = renderView(<ActionDialog {...props} />);
 
     expect(html).toContain("Motivo");
+    expect(html).not.toContain("opcional");
+    expect(html).toMatch(/<textarea[^>]*required/);
     expect(html).toContain('maxLength="500"');
   });
 
@@ -63,10 +65,17 @@ describe("ActionDialog when sending back to the queue", () => {
     expect(html).toContain("Devolver à fila?");
     expect(textOf(html)).toContain("lucas deixa de ser o responsável");
     expect(html).toContain("Aberto");
-    expect(html).not.toContain("Motivo");
     expect(html).toMatch(
       /<button[^>]*type="submit"(?![^>]*disabled="")[^>]*>(?:(?!<\/button>)[\s\S])*Devolver à fila/,
     );
+  });
+
+  it("offers an optional reason that does not block confirming", () => {
+    const html = renderView(<ActionDialog {...props} action="reopen" canConfirm />);
+
+    expect(html).toContain("Motivo (opcional)");
+    expect(html).toMatch(/<textarea(?![^>]*required)[^>]*>/);
+    expect(html).toContain('maxLength="500"');
   });
 
   it("talks to the user when they are the assignee", () => {

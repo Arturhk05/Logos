@@ -1,14 +1,18 @@
-"""Create the demo users and sample incidents. Safe to run on every deploy: existing data is kept."""
+"""Create the demo users and sample incidents. Safe to run on every deploy: existing data is kept.
 
+With --reset-incidents, every incident is deleted first and the samples are created again.
+"""
+
+import argparse
 import random
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.modules.auth.security import hash_password
 from app.modules.incidents.enums import Criticality, IncidentCategory, IncidentStatus
-from app.modules.incidents.models import Incident
+from app.modules.incidents.models import Incident, IncidentEvent
 from app.modules.users.enums import UserRole
 from app.modules.users.models import User
 from app.modules.users.repository import SqlAlchemyUserRepository
@@ -37,6 +41,9 @@ INCIDENTS_PER_STATUS: dict[IncidentStatus, int] = {
 
 # Fixed so every environment shows the same demo data.
 RANDOM_SEED = 2026
+
+# Share of incidents under investigation that a supervisor returned to the queue before someone else assumed them.
+RETURNED_SHARE = 0.2
 
 CATEGORY_WEIGHTS: dict[IncidentCategory, int] = {
     IncidentCategory.MECHANICAL_PROBLEM: 30,
@@ -123,6 +130,13 @@ CLOSURE_REASONS: dict[IncidentStatus, tuple[str, ...]] = {
 }
 
 
+RETURN_REASONS: tuple[str, ...] = (
+    "Analista saiu do turno.",
+    "Redistribuído para equilibrar a fila entre os analistas.",
+    "Analista precisou atender um acidente com vítimas.",
+)
+
+
 def seed_users(session: Session) -> int:
     """Create the demo users that do not exist yet and return how many were created."""
     users = SqlAlchemyUserRepository(session)
@@ -148,15 +162,28 @@ def seed_incidents(session: Session) -> int:
     supervisors = [user for user in central if user.role is UserRole.SUPERVISOR]
 
     rng = random.Random(RANDOM_SEED)  # noqa: S311 (sample data, not security)
+    # A separate generator for the change log, so the incidents themselves do not depend on it.
+    history_rng = random.Random(RANDOM_SEED)  # noqa: S311 (sample data, not security)
     now = datetime.now(UTC)
     incidents = [
         _build_incident(rng, now, status, drivers, central, supervisors)
         for status, amount in INCIDENTS_PER_STATUS.items()
         for _ in range(amount)
     ]
+    analysts = [user for user in central if user.role is UserRole.ANALYST]
+    for incident in incidents:
+        _add_history(history_rng, incident, analysts, supervisors)
     session.add_all(incidents)
     session.flush()
     return len(incidents)
+
+
+def reset_incidents(session: Session) -> int:
+    """Delete every incident and its change log, and return how many incidents were deleted."""
+    deleted = session.scalar(select(func.count()).select_from(Incident)) or 0
+    session.execute(delete(IncidentEvent))
+    session.execute(delete(Incident))
+    return deleted
 
 
 def _build_incident(
@@ -210,8 +237,48 @@ def _build_incident(
     return incident
 
 
+def _add_history(rng: random.Random, incident: Incident, analysts: list[User], supervisors: list[User]) -> None:
+    """Give the incident a change log consistent with its current state (RN-12), ending at `updated_at`."""
+
+    def log(at: datetime, actor_id: int, from_status: IncidentStatus | None, to_status: IncidentStatus, reason: str | None = None) -> None:
+        incident.events.append(IncidentEvent(actor_id=actor_id, from_status=from_status, to_status=to_status, reason=reason, created_at=at))
+
+    opened, last = incident.created_at, incident.updated_at
+    assignee_id, closer_id = incident.assignee_id, incident.closed_by_id
+    log(opened, incident.reporter_id, None, IncidentStatus.OPEN)
+    if assignee_id is None:  # still open
+        return
+
+    if incident.status is IncidentStatus.INVESTIGATING:
+        others = [analyst for analyst in analysts if analyst.id != assignee_id]
+        if rng.random() < RETURNED_SHARE:
+            # Assumed by another analyst, returned by a supervisor, then assumed by the current assignee.
+            log(opened + (last - opened) * 0.25, rng.choice(others).id, IncidentStatus.OPEN, IncidentStatus.INVESTIGATING)
+            log(
+                opened + (last - opened) * 0.6,
+                rng.choice(supervisors).id,
+                IncidentStatus.INVESTIGATING,
+                IncidentStatus.OPEN,
+                rng.choice(RETURN_REASONS),
+            )
+            incident.version = 4
+        log(last, assignee_id, IncidentStatus.OPEN, IncidentStatus.INVESTIGATING)
+        return
+
+    if closer_id is None:  # every other state is closed
+        return
+    log(opened + (last - opened) * rng.uniform(0.05, 0.5), assignee_id, IncidentStatus.OPEN, IncidentStatus.INVESTIGATING)
+    log(last, closer_id, IncidentStatus.INVESTIGATING, incident.status, incident.closure_reason)
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--reset-incidents", action="store_true", help="delete every incident before creating the samples")
+    args = parser.parse_args()
+
     with get_session_factory().begin() as session:
+        if args.reset_incidents:
+            print(f"Incidents deleted: {reset_incidents(session)}")
         users_created = seed_users(session)
         incidents_created = seed_incidents(session)
     print(f"Demo users created: {users_created}")

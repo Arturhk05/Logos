@@ -85,7 +85,7 @@ A interface e a API ficam no mesmo domínio, atrás do CloudFront, então a sess
 
 ## Qualidade
 
-- **Testes:** no backend, unitários (regras de negócio com repositórios em memória), de integração (repositórios, migrations e concorrência no PostgreSQL) e de API (do HTTP ao banco). No frontend, a lógica de cada tela e cada estado da interface.
+- **Testes:** no backend, 242 testes com 99% de cobertura de linhas e ramos (`uv run pytest --cov`): unitários (regras de negócio com repositórios em memória), de integração (repositórios, migrations e concorrência no PostgreSQL) e de API (do HTTP ao banco). No frontend, a lógica de cada tela e cada estado da interface.
 - **CI** ([`ci.yml`](.github/workflows/ci.yml)): a cada push no `dev` e em cada pull request, lint, formatação, tipos e testes do backend e do frontend, o build e a conferência de que o contrato da API e os tipos gerados estão em dia.
 - **Deploy** ([`deploy-backend.yml`](.github/workflows/deploy-backend.yml) e [`deploy-frontend.yml`](.github/workflows/deploy-frontend.yml)): a cada push na `main` que altere o backend ou o frontend, repete as verificações daquela parte e só publica se todas passarem.
 

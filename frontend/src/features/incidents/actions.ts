@@ -31,6 +31,17 @@ export function needsReason(action: IncidentAction): action is ReasonAction {
   return action === "close" || action === "inconclusive";
 }
 
+/** Closing requires a reason (RN-05); sending back to the queue takes an optional one (RN-11). */
+export function acceptsReason(action: IncidentAction): boolean {
+  return needsReason(action) || action === "reopen";
+}
+
+/** The reason as the API should receive it: trimmed, and left out when there is none. */
+export function reasonToSend(action: ConfirmedAction, reason: string): string | undefined {
+  const trimmed = reason.trim();
+  return acceptsReason(action) && trimmed !== "" ? trimmed : undefined;
+}
+
 /** Status changes are confirmed in a dialog: they end or undo someone's work. Assuming is one click. */
 export function needsConfirmation(action: IncidentAction): action is ConfirmedAction {
   return action !== "assume";
