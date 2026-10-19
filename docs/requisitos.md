@@ -334,6 +334,21 @@ _"Quando o meu pneu fura na estrada, eu quero reportar o incidente e acionar a c
 - **Dado** que o filtro está ativo, **quando** olho os contadores por criticidade, **então** eles continuam mostrando todos os incidentes ativos.
 - **Dado** que não assumi nenhum incidente, **quando** ativo o filtro, **então** vejo um estado vazio com a opção de limpar os filtros.
 
+### US-15: Ver os incidentes sem responsável
+
+**Como** analista ou supervisor,
+**quero** filtrar a fila pelos incidentes que ninguém assumiu,
+**para** começar o turno pelo que ainda não tem ninguém cuidando.
+
+**Critérios de aceite**
+
+- **Dado** que escolho "Sem responsável", **quando** a fila é exibida, **então** vejo apenas os incidentes ativos sem responsável.
+- **Dado** que escolho "Sem responsável", **quando** olho as opções de responsável, **então** "Assumidos por mim" fica desmarcado, porque as duas opções não podem ser usadas juntas.
+- **Dado** que combino esse filtro com criticidade e categoria, **quando** aplico, **então** são exibidos apenas incidentes que atendem a todos.
+- **Dado** que ativei o filtro, **quando** recarrego a página ou compartilho a URL, **então** o filtro é mantido.
+- **Dado** que o filtro está ativo, **quando** olho os contadores por criticidade, **então** eles continuam mostrando todos os incidentes ativos.
+- **Dado** que todos os incidentes ativos têm responsável, **quando** ativo o filtro, **então** vejo um estado vazio com a opção de limpar os filtros.
+
 ## Requisitos não funcionais
 
 | ID     | Categoria      | Requisito                                                                                                                                                                                                                       |
