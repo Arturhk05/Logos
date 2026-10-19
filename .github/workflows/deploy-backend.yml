@@ -7,6 +7,8 @@ on:
       - backend/**
       - infra/ec2-deploy.sh
       - .github/workflows/deploy-backend.yml
+      # Documentation alone does not change what runs.
+      - "!**/*.md"
   workflow_dispatch:
 
 permissions:

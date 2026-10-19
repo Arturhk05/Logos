@@ -6,6 +6,8 @@ on:
     paths:
       - frontend/**
       - .github/workflows/deploy-frontend.yml
+      # Documentation alone does not change what is published.
+      - "!**/*.md"
   workflow_dispatch:
 
 permissions:
