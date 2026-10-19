@@ -14,6 +14,26 @@ describe("shared UI", () => {
     expect(html).toContain("<svg");
   });
 
+  it("gives every criticality badge the same width and an outline", () => {
+    const classes = (["HIGH", "MEDIUM", "LOW"] as const).map((criticality) => {
+      const html = renderView(<CriticalityBadge criticality={criticality} />);
+      return /<span class="([^"]*)"/.exec(html)?.[1]?.split(" ") ?? [];
+    });
+
+    for (const list of classes) {
+      expect(list).toContain("w-20");
+      expect(list).toContain("border");
+    }
+  });
+
+  it("keeps the icon on the left and centers the label in the space left", () => {
+    const html = renderView(<CriticalityBadge criticality="MEDIUM" />);
+
+    expect(html).toMatch(
+      /<span class="[^"]*"><svg[\s\S]*?<\/svg><span class="[^"]*flex-1[^"]*text-center[^"]*">Média<\/span>/,
+    );
+  });
+
   it("shows status with text and an icon", () => {
     const html = renderView(<StatusLabel status="INVESTIGATING" />);
 
