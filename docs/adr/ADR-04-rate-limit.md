@@ -1,7 +1,9 @@
 # ADR-04: Limitação de taxa de requisições (rate limit)
 
-- **Status:** Aceito
+- **Status:** Retirado do escopo do MVP
 - **Data:** 2026-10-17
+
+> **Situação:** o rate limit não foi implementado no MVP. O tempo foi para as telas, que pesam mais na avaliação, e o login, os papéis e a validação das entradas já cobrem a segurança básica da API. A decisão abaixo fica registrada para quando o limite for implementado. A exceção é o item 1 de "Identificação do IP do cliente": o security group da EC2 aceita só o CloudFront, e essa restrição está em vigor, porque o [ADR-07](ADR-07-http-entre-cloudfront-e-api.md) também depende dela.
 
 ## Contexto
 
