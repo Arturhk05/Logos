@@ -129,7 +129,7 @@ describe("ReportView", () => {
 
     expect(html).toContain("Incidente #142 enviado.");
     expect(html).toContain(
-      "A central vai entrar em contato pelo WhatsApp no número terminado em 0001.",
+      "A central já foi avisada e vai entrar em contato pelo WhatsApp no número terminado em 0001.",
     );
     expect(html).toContain("Ver meus reportes");
     expect(html).toMatch(buttonWith("Reportar outro"));

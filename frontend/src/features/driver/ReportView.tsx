@@ -219,9 +219,9 @@ function Created({
       <CircleCheck aria-hidden className="size-12 text-ink" />
       <div>
         <p className="text-lg font-bold">Incidente #{id} enviado.</p>
-        <p className="text-muted">A central já foi avisada.</p>
         <p className="text-muted">
-          A central vai entrar em contato pelo WhatsApp no número terminado em {phoneEnding(phone)}.
+          A central já foi avisada e vai entrar em contato pelo WhatsApp no número terminado em{" "}
+          {phoneEnding(phone)}.
         </p>
       </div>
       <div className="flex w-full flex-col gap-2">
