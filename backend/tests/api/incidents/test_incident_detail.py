@@ -104,3 +104,23 @@ def test_central_user_sees_incident_assigned_to_someone_else(
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["assignee"] == {"id": other_analyst.id, "username": "lucas"}
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "body"),
+    [
+        ("GET", "", None),
+        ("POST", "/assume", {"version": 1}),
+        ("PATCH", "/status", {"status": "OPEN", "version": 1}),
+    ],
+)
+@pytest.mark.parametrize("incident_id", ["0", "2147483648", "99999999999999999999"])
+def test_incident_id_out_of_range_returns_422(
+    db_client: TestClient, login_as: LoginAs, method: str, path: str, body: dict[str, object] | None, incident_id: str
+) -> None:
+    login_as(UserRole.SUPERVISOR, "roberto")
+
+    response = db_client.request(method, f"/api/incidents/{incident_id}{path}", json=body)
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert response.json() == {"detail": "Dados inválidos. Revise os campos e tente novamente."}

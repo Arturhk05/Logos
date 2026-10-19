@@ -134,7 +134,7 @@ _"Quando o meu pneu fura na estrada, eu quero reportar o incidente e acionar a c
   | ----------------------------------- | -------------------- |
   | Acidente com Vítimas                | Alta (fixa)          |
   | Acidente com Veículo                | Alta                 |
-  | Bloqueio de Pista                   | Média                |
+  | Bloqueio de Pista                   | Baixa                |
   | Condição Climática Atípica na Pista | Média                |
   | Problema Mecânico                   | Média                |
 
@@ -284,7 +284,7 @@ _"Quando o meu pneu fura na estrada, eu quero reportar o incidente e acionar a c
 - **Dado** credenciais válidas de analista ou supervisor, **quando** entro no sistema, **então** sou levado à lista de incidentes ativos.
 - **Dado** credenciais válidas de motorista, **quando** entro no sistema, **então** sou levado à tela de reporte (RN-06).
 - **Dado** credenciais inválidas, **quando** tento entrar, **então** vejo uma mensagem de erro, sem indicar se o erro está no usuário ou na senha.
-- **Dado** que errei a senha várias vezes seguidas, **quando** tento entrar novamente, **então** vejo uma mensagem informando quanto tempo devo esperar.
+- **Retirado do escopo do MVP** (RNF-02, [ADR-04](adr/ADR-04-rate-limit.md)). **Dado** que errei a senha várias vezes seguidas, **quando** tento entrar novamente, **então** vejo uma mensagem informando quanto tempo devo esperar.
 - **Dado** que estou no sistema, **quando** clico em "Sair", **então** minha sessão é encerrada e volto à tela de login.
 - **Dado** que minha sessão expirou, **quando** faço qualquer ação, **então** sou levado à tela de login com um aviso de que a sessão expirou.
 - **Dado** que tento acessar uma tela que meu papel não permite, **quando** a página é carregada, **então** sou redirecionado para a minha tela inicial.
@@ -294,11 +294,11 @@ _"Quando o meu pneu fura na estrada, eu quero reportar o incidente e acionar a c
 | ID     | Categoria      | Requisito                                                                                                                                                                                                                       |
 | ------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | RNF-01 | Segurança      | Todos os endpoints exigem autenticação, e cada ação é permitida apenas aos papéis autorizados.                                                                                                                                  |
-| RNF-02 | Segurança      | Rate limit: login, 5 tentativas/min por nome de usuário e 20 tentativas/min por IP; criação de incidente, 10/min por usuário; demais rotas, 100/min por usuário. Ao exceder, a API responde HTTP 429 com o cabeçalho `Retry-After`. |
+| RNF-02 | Segurança      | **Retirado do escopo do MVP** ([ADR-04](adr/ADR-04-rate-limit.md)). Rate limit: login, 5 tentativas/min por nome de usuário e 20 tentativas/min por IP; criação de incidente, 10/min por usuário; demais rotas, 100/min por usuário. Ao exceder, a API responde HTTP 429 com o cabeçalho `Retry-After`. |
 | RNF-03 | Resiliência    | O frontend repete automaticamente requisições de leitura que falharem e mantém os dados em cache durante oscilações de conexão.                                                                                                 |
 | RNF-04 | Performance    | A listagem de incidentes ativos responde em menos de 300 ms com até 100 incidentes ativos, em condições normais.                                                                                                                |
 | RNF-05 | Usabilidade    | A interface não deve possuir nenhum termo técnico que possa confundir o usuário.                                                                                                                                                |
 | RNF-06 | Acessibilidade | A criticidade nunca é comunicada apenas por cor. Sempre acompanha texto ou ícone.                                                                                                                                               |
 | RNF-07 | Responsividade | As telas do motorista são projetadas primeiro para celular (mobile-first), com áreas de toque de pelo menos 44 × 44 px.                                                                                                         |
-| RNF-08 | Resiliência    | A API aplica tempo limite de 5 s às operações no banco de dados e repete automaticamente, até 3 vezes e com espera crescente entre as tentativas, as leituras que falharem por indisponibilidade temporária. Se a falha persistir, responde HTTP 503 com uma mensagem clara, sem expor detalhes internos. |
+| RNF-08 | Resiliência    | A API aplica tempo limite de 5 s às operações no banco de dados. Se o banco estiver indisponível ou não responder a tempo, responde HTTP 503 com uma mensagem clara, sem expor detalhes internos. A repetição automática das leituras pela própria API foi **retirada do escopo do MVP**: quem repete é o frontend (RNF-03). |
 | RNF-09 | Integridade    | Todas as regras de negócio são validadas no servidor, independentemente da interface. Uma ação não permitida é rejeitada mesmo que seja enviada diretamente à API.                                                              |

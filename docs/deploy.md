@@ -230,7 +230,7 @@ Para abrir um terminal na instância, sem SSH (requer o [Session Manager plugin]
 aws ssm start-session --target $INSTANCE_ID
 ```
 
-## 4. Deploy automático (GitHub Actions)
+## 4. Deploy automático da API (GitHub Actions)
 
 A cada push na `main` que altere `backend/`, o [`deploy-backend.yml`](../.github/workflows/deploy-backend.yml) faz:
 
@@ -238,7 +238,7 @@ A cada push na `main` que altere `backend/`, o [`deploy-backend.yml`](../.github
 2. **build**: constrói a imagem num runner ARM do GitHub (a EC2 é ARM, então não há emulação) e envia ao ECR com a tag do commit.
 3. **deploy**: envia o [`ec2-deploy.sh`](../infra/ec2-deploy.sh) para a EC2 pelo SSM Run Command e espera o resultado. O script monta o `.env` a partir do SSM, roda migrations e seed num container avulso e só então troca o container da API. Se as migrations falharem, a versão anterior continua no ar.
 
-O GitHub não guarda nenhuma chave da AWS: o workflow se autentica por OIDC e assume o papel `logos-github-deploy`, que só aceita a branch `main` deste repositório e só pode enviar imagens ao `logos-api` e comandos à instância da API.
+O GitHub não guarda nenhuma chave da AWS: o workflow se autentica por OIDC e assume o papel `logos-github-deploy`, que só aceita a branch `main` deste repositório e só pode enviar imagens ao `logos-api` e comandos à instância da API (a etapa 6 acrescenta a publicação do frontend).
 
 ```bash
 aws iam create-open-id-connect-provider --url https://token.actions.githubusercontent.com \
@@ -296,17 +296,40 @@ OAC_ID=$(aws cloudfront create-origin-access-control --origin-access-control-con
   --query OriginAccessControl.Id --output text)
 ```
 
+Função do CloudFront que entrega o `index.html` nas rotas do React, como `/fila/123` ([ADR-09](adr/ADR-09-rotas-do-frontend-no-cloudfront.md), [código](../infra/cloudfront-spa-routes.js)). Ela nasce no estágio `DEVELOPMENT`, é testada e só então publicada:
+
+```bash
+aws cloudfront create-function --name logos-spa-routes \
+  --function-config 'Comment=Logos: serve index.html for React routes (ADR-09),Runtime=cloudfront-js-2.0' \
+  --function-code fileb://infra/cloudfront-spa-routes.js
+FUNCTION_ARN=arn:aws:cloudfront::$ACCOUNT_ID:function/logos-spa-routes
+aws cloudfront tag-resource --resource $FUNCTION_ARN --tags 'Items=[{Key=Project,Value=logos}]'
+
+# Rotas viram /index.html; arquivos (com ponto no último trecho) mantêm o caminho; a query string não muda.
+ETAG=$(aws cloudfront describe-function --name logos-spa-routes --stage DEVELOPMENT --query ETag --output text)
+for uri in / /fila/123 /meus-reportes /index.html /assets/index-abc.js; do
+  printf '{"version":"1.0","context":{"eventType":"viewer-request"},"viewer":{"ip":"198.51.100.1"},"request":{"method":"GET","uri":"%s","querystring":{},"headers":{},"cookies":{}}}' "$uri" > event.json
+  echo "$uri -> $(aws cloudfront test-function --name logos-spa-routes --if-match $ETAG --stage DEVELOPMENT \
+    --event-object fileb://event.json --query TestResult.FunctionOutput --output text)"
+done
+rm event.json
+
+aws cloudfront publish-function --name logos-spa-routes \
+  --if-match $(aws cloudfront describe-function --name logos-spa-routes --query ETag --output text)
+```
+
 Distribuição do CloudFront ([configuração](../infra/cloudfront-distribution.json)):
 
 | Rota | Origem | Configuração |
 |---|---|---|
-| `/*` | S3, via OAC | cache `CachingOptimized`; HTTP é redirecionado para HTTPS |
+| `/*` | S3, via OAC | cache `CachingOptimized`; HTTP é redirecionado para HTTPS; a função `logos-spa-routes` troca as rotas do React por `/index.html` |
 | `/api/*` | EC2 (DNS do Elastic IP), porta 80 | sem cache (`CachingDisabled`), repassa cookies e cabeçalhos (`AllViewerExceptHostHeader`), todos os métodos, **só HTTPS** (um redirecionamento perderia o corpo de um `POST`) |
 
 ```bash
 API_ORIGIN=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].PublicDnsName' --output text)
 config=$(sed -e "s|CALLER_REFERENCE|logos-$(date +%Y%m%d%H%M%S)|" -e "s|BUCKET|$BUCKET|" -e "s|OAC_ID|$OAC_ID|" \
-  -e "s|API_ORIGIN|$API_ORIGIN|" -e "s|CERTIFICATE_ARN|$CERT_ARN|" infra/cloudfront-distribution.json)
+  -e "s|API_ORIGIN|$API_ORIGIN|" -e "s|CERTIFICATE_ARN|$CERT_ARN|" -e "s|FUNCTION_ARN|$FUNCTION_ARN|" \
+  infra/cloudfront-distribution.json)
 DISTRIBUTION_ID=$(aws cloudfront create-distribution-with-tags --distribution-config-with-tags "$config" \
   --query Distribution.Id --output text)
 
@@ -319,9 +342,41 @@ aws cloudfront get-distribution --id $DISTRIBUTION_ID --query Distribution.Domai
 
 Por fim, no provedor DNS: `CNAME` de `logos` para o domínio `*.cloudfront.net` da distribuição.
 
+> No ambiente atual, a função foi criada depois da distribuição e associada a ela com `get-distribution-config`, acrescentando o `FunctionAssociations` ao `DefaultCacheBehavior`, e `update-distribution` (o mesmo procedimento de "Remover tudo"). O comportamento `/api/*` não tem função: as respostas da API, inclusive 401, 403 e 404, chegam ao navegador como saíram dela.
+
 > **Trecho sem criptografia ([ADR-07](adr/ADR-07-http-entre-cloudfront-e-api.md)):** o HTTPS termina no CloudFront, e o CloudFront fala com a EC2 em HTTP. Esse trecho leva o cookie de sessão e o corpo do login sem cifra. A EC2 só aceita conexões do CloudFront, e os dois estão em `us-east-1`, mas o tráfego entre eles não é cifrado. É uma decisão consciente para o MVP: cifrar até a origem exigiria um certificado público na EC2 (Let's Encrypt, com validação que esbarra no isolamento da porta 80) ou um load balancer com certificado do ACM (cerca de US$ 18/mês).
 
-## 6. Verificação
+## 6. Deploy automático do frontend (GitHub Actions)
+
+A cada push na `main` que altere `frontend/`, o [`deploy-frontend.yml`](../.github/workflows/deploy-frontend.yml) faz:
+
+1. **test**: as mesmas verificações do CI (tipos gerados do contrato da API, ESLint, Prettier, TypeScript e testes). Nada sobe se alguma falhar.
+2. **deploy**: gera o build e envia ao bucket primeiro a pasta `assets/` e só depois o `index.html`, para que o `index.html` publicado nunca aponte para um arquivo que ainda não chegou. Por fim, invalida o cache do CloudFront e espera a invalidação terminar.
+
+| Arquivos | `Cache-Control` | Por quê |
+|---|---|---|
+| `assets/*` | `public, max-age=31536000, immutable` | O nome de cada arquivo leva um hash do conteúdo: um build novo gera nomes novos. |
+| `index.html` | `no-cache` | É ele que aponta para os `assets/` do build atual; o navegador confere a versão a cada acesso. |
+
+Os arquivos antigos de `assets/` não são apagados: uma aba aberta com o `index.html` anterior continua carregando os seus. São poucos KB por deploy.
+
+O workflow usa o mesmo papel `logos-github-deploy` da etapa 4, com uma segunda política, criada só agora porque depende da distribuição: listar e gravar no bucket do frontend e invalidar o cache da distribuição, nada além disso.
+
+```bash
+fill() { sed -e "s/ACCOUNT_ID/$ACCOUNT_ID/g" -e "s/DISTRIBUTION_ID/$DISTRIBUTION_ID/g" "$1"; }
+aws iam put-role-policy --role-name logos-github-deploy --policy-name logos-deploy-frontend \
+  --policy-document "$(fill infra/github-deploy-frontend-policy.json)"
+gh variable set CLOUDFRONT_DISTRIBUTION_ID --body "$DISTRIBUTION_ID"
+```
+
+O nome do bucket é montado no workflow a partir de `AWS_ACCOUNT_ID`. Para publicar sem novo commit:
+
+```bash
+gh workflow run deploy-frontend.yml
+gh run watch
+```
+
+## 7. Verificação
 
 ```bash
 D=https://logos.arturkrauspenhar.com.br
@@ -334,7 +389,20 @@ curl -i http://logos.arturkrauspenhar.com.br/           # 301 para HTTPS
 curl -i http://logos.arturkrauspenhar.com.br/api/health # 403: a API só aceita HTTPS
 curl --max-time 5 http://<elastic-ip>/api/health        # timeout: a EC2 só aceita o CloudFront
 rm cookies.txt
+
+# Rotas do React (ADR-09)
+curl -s -o /dev/null -w "%{http_code} %{content_type}\n" $D/fila/123              # 200 text/html: index.html
+curl -s -o /dev/null -w "%{http_code} %{content_type}\n" $D/assets/nao-existe.js  # 403 application/xml: arquivo inexistente não vira HTML
+curl -s -w " %{http_code}\n" $D/api/rota-que-nao-existe                         # 404 em JSON: a função não atua na API
+curl -s -w " %{http_code}\n" $D/api/me                                          # 401 em JSON
+
+# Frontend publicado
+curl -sI $D/ | grep -i cache-control                                            # no-cache
+curl -s $D/ | grep -o 'assets/index-[^"]*\.js'                                  # o mesmo arquivo de frontend/dist/assets no build do commit
+curl -sI $D/assets/<arquivo-acima> | grep -i cache-control                      # public, max-age=31536000, immutable
 ```
+
+No navegador: entrar com cada papel, recarregar a página em `/fila/<id>`, `/historico?page=2` e `/meus-reportes`, e abrir `/fila/00000000-0000-0000-0000-000000000000`, que deve mostrar a mensagem de incidente não encontrado.
 
 No navegador, em `$D/api/docs`, fazer o login pelo Swagger (`POST /api/auth/login`) e depois chamar `GET /api/me`, que deve responder 200 sem nenhuma configuração extra.
 
@@ -343,7 +411,7 @@ No navegador, em `$D/api/docs`, fazer o login pelo Swagger (`POST /api/auth/logi
 Ao fim da avaliação, na ordem abaixo (cada recurso depende dos seguintes). Antes, recupere as variáveis do início deste documento.
 
 ```bash
-# 1. CloudFront: desativar, esperar, apagar; depois o OAC, o bucket e o certificado
+# 1. CloudFront: desativar, esperar, apagar; depois a função, o OAC, o bucket e o certificado
 DISTRIBUTION_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?Aliases.Items[0]=='logos.arturkrauspenhar.com.br'].Id" --output text)
 aws cloudfront get-distribution-config --id $DISTRIBUTION_ID > dist.json
 ETAG=$(python -c "import json; print(json.load(open('dist.json'))['ETag'])")
@@ -353,6 +421,8 @@ aws cloudfront wait distribution-deployed --id $DISTRIBUTION_ID
 aws cloudfront delete-distribution --id $DISTRIBUTION_ID \
   --if-match $(aws cloudfront get-distribution --id $DISTRIBUTION_ID --query ETag --output text)
 rm dist.json dist-config.json
+aws cloudfront delete-function --name logos-spa-routes \
+  --if-match $(aws cloudfront describe-function --name logos-spa-routes --query ETag --output text)
 OAC_ID=$(aws cloudfront list-origin-access-controls --query "OriginAccessControlList.Items[?Name=='logos-frontend-oac'].Id" --output text)
 aws cloudfront delete-origin-access-control --id $OAC_ID \
   --if-match $(aws cloudfront get-origin-access-control --id $OAC_ID --query ETag --output text)
@@ -362,7 +432,8 @@ aws acm delete-certificate --certificate-arn $(aws acm list-certificates \
 # Na Hostinger: apagar o CNAME "logos" e o de validação do ACM.
 
 # 2. Deploy automático
-gh variable delete AWS_ACCOUNT_ID && gh variable delete EC2_INSTANCE_ID
+gh variable delete AWS_ACCOUNT_ID && gh variable delete EC2_INSTANCE_ID && gh variable delete CLOUDFRONT_DISTRIBUTION_ID
+aws iam delete-role-policy --role-name logos-github-deploy --policy-name logos-deploy-frontend
 aws iam delete-role-policy --role-name logos-github-deploy --policy-name logos-deploy
 aws iam delete-role --role-name logos-github-deploy
 aws iam delete-open-id-connect-provider \

@@ -1,13 +1,14 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from threading import Barrier
+from uuid import UUID, uuid4
 
-from sqlalchemy import Engine, delete
+from sqlalchemy import Engine, delete, func, select
 from sqlalchemy.orm import Session
 
 from app.modules.incidents.enums import Criticality, IncidentCategory, IncidentStatus
 from app.modules.incidents.models import Incident
-from app.modules.incidents.repository import SqlAlchemyIncidentRepository
+from app.modules.incidents.repository import IncidentFilter, IncidentOrder, SqlAlchemyIncidentRepository
 from app.modules.users.enums import UserRole
 from app.modules.users.models import User
 from tests.factories import create_incident, create_user
@@ -103,7 +104,15 @@ def test_only_one_of_many_simultaneous_updates_succeeds(database_engine: Engine)
             cleanup.execute(delete(User).where(User.id.in_([driver.id, *(analyst.id for analyst in analysts)])))
 
 
-def test_list_by_status_returns_only_requested_statuses_from_oldest(db_session: Session) -> None:
+def _at(hour: int) -> datetime:
+    return datetime(2026, 10, 18, hour, tzinfo=UTC)
+
+
+def _ids(incidents: list[Incident]) -> list[int]:
+    return [incident.id for incident in incidents]
+
+
+def test_search_filters_by_status_from_oldest(db_session: Session) -> None:
     driver = create_user(db_session, UserRole.DRIVER)
     open_at_10 = create_incident(db_session, driver, status=IncidentStatus.OPEN, created_at=datetime(2026, 10, 18, 10, tzinfo=UTC))
     create_incident(db_session, driver, status=IncidentStatus.CLOSED, created_at=datetime(2026, 10, 18, 9, tzinfo=UTC))
@@ -112,7 +121,7 @@ def test_list_by_status_returns_only_requested_statuses_from_oldest(db_session: 
     )
     open_at_11 = create_incident(db_session, driver, status=IncidentStatus.OPEN, created_at=datetime(2026, 10, 18, 11, tzinfo=UTC))
 
-    listed = SqlAlchemyIncidentRepository(db_session).list_by_status({IncidentStatus.OPEN, IncidentStatus.INVESTIGATING})
+    listed = SqlAlchemyIncidentRepository(db_session).search(IncidentFilter(statuses={IncidentStatus.OPEN, IncidentStatus.INVESTIGATING}))
 
     assert [incident.id for incident in listed] == [investigating_at_8.id, open_at_10.id, open_at_11.id]
 
@@ -156,12 +165,161 @@ def test_update_if_version_refreshes_already_loaded_relationships(db_session: Se
     assert updated.assignee.username == "lucas"
 
 
-def test_list_by_status_breaks_ties_by_id(db_session: Session) -> None:
+def test_search_breaks_ties_by_id(db_session: Session) -> None:
     driver = create_user(db_session, UserRole.DRIVER)
     same_time = datetime(2026, 10, 18, 10, tzinfo=UTC)
     first = create_incident(db_session, driver, created_at=same_time)
     second = create_incident(db_session, driver, created_at=same_time)
 
-    listed = SqlAlchemyIncidentRepository(db_session).list_by_status({IncidentStatus.OPEN})
+    listed = SqlAlchemyIncidentRepository(db_session).search(IncidentFilter(statuses={IncidentStatus.OPEN}))
 
     assert [incident.id for incident in listed] == [first.id, second.id]
+
+
+def test_search_combines_every_filter(db_session: Session) -> None:
+    driver = create_user(db_session, UserRole.DRIVER)
+    other_driver = create_user(db_session, UserRole.DRIVER)
+    matching = {"status": IncidentStatus.OPEN, "criticality": Criticality.HIGH, "category": IncidentCategory.ROAD_BLOCKAGE}
+    expected = create_incident(db_session, driver, **matching)
+    create_incident(db_session, driver, **(matching | {"status": IncidentStatus.INVESTIGATING}))
+    create_incident(db_session, driver, **(matching | {"criticality": Criticality.LOW}))
+    create_incident(db_session, driver, **(matching | {"category": IncidentCategory.ADVERSE_WEATHER}))
+    create_incident(db_session, other_driver, **matching)
+
+    listed = SqlAlchemyIncidentRepository(db_session).search(
+        IncidentFilter(
+            statuses={IncidentStatus.OPEN},
+            criticalities={Criticality.HIGH},
+            categories={IncidentCategory.ROAD_BLOCKAGE},
+            reporter_id=driver.id,
+        )
+    )
+
+    assert _ids(listed) == [expected.id]
+
+
+def test_search_orders_newest_first(db_session: Session) -> None:
+    driver = create_user(db_session, UserRole.DRIVER)
+    at_8 = create_incident(db_session, driver, created_at=_at(8))
+    at_10 = create_incident(db_session, driver, created_at=_at(10))
+    at_9 = create_incident(db_session, driver, created_at=_at(9))
+
+    listed = SqlAlchemyIncidentRepository(db_session).search(IncidentFilter(reporter_id=driver.id, order=IncidentOrder.NEWEST_FIRST))
+
+    assert _ids(listed) == [at_10.id, at_9.id, at_8.id]
+
+
+def test_search_orders_recently_closed_first(db_session: Session) -> None:
+    driver = create_user(db_session, UserRole.DRIVER)
+    closed = {"status": IncidentStatus.CLOSED, "closure_reason": "Resolvido"}
+    closed_at_10 = create_incident(db_session, driver, **closed, closed_at=_at(10), created_at=_at(7))
+    closed_at_12 = create_incident(db_session, driver, **closed, closed_at=_at(12), created_at=_at(6))
+    closed_at_11 = create_incident(db_session, driver, **closed, closed_at=_at(11), created_at=_at(8))
+
+    listed = SqlAlchemyIncidentRepository(db_session).search(
+        IncidentFilter(reporter_id=driver.id, order=IncidentOrder.RECENTLY_CLOSED_FIRST)
+    )
+
+    assert _ids(listed) == [closed_at_12.id, closed_at_11.id, closed_at_10.id]
+
+
+def test_search_paginates_with_offset_and_limit(db_session: Session) -> None:
+    driver = create_user(db_session, UserRole.DRIVER)
+    create_incident(db_session, driver, created_at=_at(8))
+    at_9 = create_incident(db_session, driver, created_at=_at(9))
+    create_incident(db_session, driver, created_at=_at(10))
+
+    listed = SqlAlchemyIncidentRepository(db_session).search(IncidentFilter(reporter_id=driver.id, offset=1, limit=1))
+
+    assert _ids(listed) == [at_9.id]
+
+
+def test_count_ignores_pagination(db_session: Session) -> None:
+    driver = create_user(db_session, UserRole.DRIVER)
+    for hour in (8, 9, 10):
+        create_incident(db_session, driver, created_at=_at(hour))
+    create_incident(db_session, driver, status=IncidentStatus.CLOSED, created_at=_at(11))
+
+    total = SqlAlchemyIncidentRepository(db_session).count(
+        IncidentFilter(statuses={IncidentStatus.OPEN}, reporter_id=driver.id, offset=1, limit=1)
+    )
+
+    assert total == 3
+
+
+def _report(reporter: User, key: UUID) -> Incident:
+    return Incident(
+        category=IncidentCategory.MECHANICAL_PROBLEM,
+        criticality=Criticality.MEDIUM,
+        status=IncidentStatus.OPEN,
+        location="BR-116, km 230",
+        description="Pneu furado no acostamento",
+        reporter_id=reporter.id,
+        idempotency_key=key,
+    )
+
+
+def test_add_with_repeated_idempotency_key_returns_the_existing_incident(db_session: Session) -> None:
+    driver = create_user(db_session, UserRole.DRIVER)
+    repository = SqlAlchemyIncidentRepository(db_session)
+    key = uuid4()
+    first = repository.add(_report(driver, key))
+
+    second = repository.add(_report(driver, key))
+
+    assert second.id == first.id
+
+
+def test_same_idempotency_key_from_another_reporter_creates_another_incident(db_session: Session) -> None:
+    first_driver = create_user(db_session, UserRole.DRIVER)
+    second_driver = create_user(db_session, UserRole.DRIVER)
+    repository = SqlAlchemyIncidentRepository(db_session)
+    key = uuid4()
+
+    first = repository.add(_report(first_driver, key))
+    second = repository.add(_report(second_driver, key))
+
+    assert second.id != first.id
+    assert (first.reporter_id, second.reporter_id) == (first_driver.id, second_driver.id)
+    assert db_session.scalar(select(func.count()).select_from(Incident).where(Incident.idempotency_key == key)) == 2
+
+
+def test_simultaneous_reports_with_the_same_key_create_one_incident(database_engine: Engine) -> None:
+    """Each request uses its own connection and transaction; the unique key makes the late ones find the first incident."""
+    requests_count = 5
+    key = uuid4()
+
+    with Session(database_engine, expire_on_commit=False) as setup:
+        driver = create_user(setup, UserRole.DRIVER)
+        setup.commit()
+
+    start_together = Barrier(requests_count, timeout=10)
+
+    def report() -> int:
+        with Session(database_engine) as session, session.begin():
+            start_together.wait()
+            return SqlAlchemyIncidentRepository(session).add(_report(driver, key)).id
+
+    try:
+        with ThreadPoolExecutor(max_workers=requests_count) as executor:
+            ids = list(executor.map(lambda _: report(), range(requests_count)))
+
+        assert len(set(ids)) == 1
+        with Session(database_engine) as check:
+            assert check.scalar(select(func.count()).select_from(Incident).where(Incident.idempotency_key == key)) == 1
+    finally:
+        with Session(database_engine) as cleanup, cleanup.begin():
+            cleanup.execute(delete(Incident).where(Incident.reporter_id == driver.id))
+            cleanup.execute(delete(User).where(User.id == driver.id))
+
+
+def test_recently_closed_first_puts_incidents_without_closing_time_last(db_session: Session) -> None:
+    driver = create_user(db_session, UserRole.DRIVER)
+    without_closing_time = create_incident(db_session, driver, status=IncidentStatus.CLOSED, closed_at=None)
+    closed_at_10 = create_incident(db_session, driver, status=IncidentStatus.CLOSED, closed_at=_at(10))
+
+    listed = SqlAlchemyIncidentRepository(db_session).search(
+        IncidentFilter(reporter_id=driver.id, order=IncidentOrder.RECENTLY_CLOSED_FIRST)
+    )
+
+    assert _ids(listed) == [closed_at_10.id, without_closing_time.id]

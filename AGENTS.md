@@ -8,7 +8,7 @@ Logos is an MVP for a logistics incident response center: drivers report road in
 - `docs/requisitos.md`: personas, business rules (`RN-xx`), user stories (`US-xx`) and non-functional requirements (`RNF-xx`).
 - `docs/adr/`: architecture decision records (`ADR-xx`). Read the relevant ADR before changing a decision it covers.
 - `backend/`: Python API (FastAPI). See `backend/README.md` for every command.
-- Frontend (React) does not exist yet.
+- `frontend/`: React app (Vite, TypeScript). See `frontend/README.md` for every command.
 
 ## Commands
 
@@ -25,7 +25,18 @@ uv run alembic revision --autogenerate -m "description"   # then review the gene
 uv run alembic upgrade head
 ```
 
-A change is done only when tests, ruff and mypy (strict) all pass.
+Frontend, from `frontend/`:
+
+```bash
+npm install
+npm run dev                              # http://localhost:5173, proxies /api to localhost:8000
+npm test
+npm run lint && npm run format:check && npm run typecheck && npm run build
+```
+
+After changing an API route or schema, run `uv run python -m scripts.export_openapi` (from `backend/`) and `npm run gen:api` (from `frontend/`), and commit `frontend/openapi.json` and `frontend/src/api/schema.d.ts` with the change. CI fails if either is stale.
+
+A change is done only when tests, ruff and mypy (strict) all pass. For frontend changes, `npm test`, lint, `format:check`, typecheck and build must pass too, with `openapi.json` and `schema.d.ts` up to date.
 
 ## Backend architecture
 
@@ -50,7 +61,14 @@ app/
 - SQLAlchemy is synchronous; one transaction per request via `get_session`.
 - API responses use Pydantic schemas, never ORM objects (they would leak fields such as `password_hash`).
 
-## Tests
+## Frontend architecture
+
+- Call the API only through `request(api.GET(...))` from `src/api/client.ts`. It throws `ApiError` (`src/api/errors.ts`), whose `kind` screens switch on and whose `message` is ready to show the user.
+- Never compare HTTP status codes in screens, and never show a raw response body.
+- Reads use TanStack Query with the defaults from `src/api/query-client.ts`; do not override `retry` per query without a reason.
+- Frontend tests run in Vitest's `node` environment with MSW (`src/test/server.ts`); use absolute URLs (`http://localhost/api/...`) in handlers. A request without a handler fails the test.
+
+## Backend tests
 
 - `tests/unit/`: services with `tests/fakes.py` (in-memory repositories). No database.
 - `tests/integration/`: repositories, migrations and concurrency against real PostgreSQL.

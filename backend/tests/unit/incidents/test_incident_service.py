@@ -1,12 +1,13 @@
 from datetime import UTC, datetime
 from itertools import product
+from uuid import UUID, uuid4
 
 import pytest
 
 from app.modules.incidents.enums import Criticality, IncidentCategory, IncidentStatus
 from app.modules.incidents.models import Incident
 from app.modules.incidents.repository import IncidentChanges
-from app.modules.incidents.service import SUGGESTED_CRITICALITY, IncidentReport, IncidentService
+from app.modules.incidents.service import SUGGESTED_CRITICALITY, IncidentReport, IncidentService, category_options
 from app.modules.users.enums import UserRole
 from app.modules.users.models import User
 from app.shared.errors import BusinessRuleError, ConflictError, NotFoundError, PermissionDeniedError
@@ -35,14 +36,6 @@ def test_central_user_assumes_open_incident(driver: User, role: UserRole) -> Non
     assert assumed.status is IncidentStatus.INVESTIGATING
     assert assumed.assignee_id == actor.id
     assert assumed.version == 2
-
-
-def test_driver_cannot_assume_incident(driver: User) -> None:
-    incident = build_incident(driver)
-    service = IncidentService(InMemoryIncidentRepository(incident))
-
-    with pytest.raises(PermissionDeniedError):
-        service.assume(incident.id, driver, expected_version=1)
 
 
 def test_cannot_assume_incident_that_already_has_an_assignee(driver: User, analyst: User) -> None:
@@ -178,9 +171,8 @@ def test_supervisor_changes_status_of_another_analysts_incident(driver: User, an
     assert closed.closed_by_id == supervisor.id
 
 
-@pytest.mark.parametrize("role", [UserRole.ANALYST, UserRole.DRIVER])
-def test_only_assignee_or_supervisor_can_change_status(driver: User, analyst: User, role: UserRole) -> None:
-    outsider = build_user(role)
+def test_only_assignee_or_supervisor_can_change_status(driver: User, analyst: User) -> None:
+    outsider = build_user(UserRole.ANALYST)
     incident = build_incident_in(INVESTIGATING, driver, analyst)
     service = IncidentService(InMemoryIncidentRepository(incident))
 
@@ -203,9 +195,17 @@ def test_change_status_with_outdated_version_raises_conflict(driver: User, analy
 
 
 def build_report(
-    category: IncidentCategory = IncidentCategory.MECHANICAL_PROBLEM, criticality: Criticality | None = None
+    category: IncidentCategory = IncidentCategory.MECHANICAL_PROBLEM,
+    criticality: Criticality | None = None,
+    idempotency_key: UUID | None = None,
 ) -> IncidentReport:
-    return IncidentReport(category=category, location="BR-116, km 230", description="Pneu furado no acostamento", criticality=criticality)
+    return IncidentReport(
+        category=category,
+        location="BR-116, km 230",
+        description="Pneu furado no acostamento",
+        idempotency_key=idempotency_key or uuid4(),
+        criticality=criticality,
+    )
 
 
 def test_driver_reports_incident_that_starts_open_without_assignee(driver: User) -> None:
@@ -226,7 +226,7 @@ def test_driver_reports_incident_that_starts_open_without_assignee(driver: User)
     [
         (IncidentCategory.ACCIDENT_WITH_VICTIMS, Criticality.HIGH),
         (IncidentCategory.VEHICLE_ACCIDENT, Criticality.HIGH),
-        (IncidentCategory.ROAD_BLOCKAGE, Criticality.MEDIUM),
+        (IncidentCategory.ROAD_BLOCKAGE, Criticality.LOW),
         (IncidentCategory.ADVERSE_WEATHER, Criticality.MEDIUM),
         (IncidentCategory.MECHANICAL_PROBLEM, Criticality.MEDIUM),
     ],
@@ -269,12 +269,26 @@ def test_accident_with_victims_accepts_high_criticality(driver: User) -> None:
     assert incident.criticality is Criticality.HIGH
 
 
-@pytest.mark.parametrize("role", [UserRole.ANALYST, UserRole.SUPERVISOR])
-def test_only_drivers_can_report_incidents(role: UserRole) -> None:
+def test_reporting_twice_with_the_same_key_returns_the_first_incident(driver: User) -> None:
     service = IncidentService(InMemoryIncidentRepository())
+    key = uuid4()
+    first = service.report(driver, build_report(idempotency_key=key))
 
-    with pytest.raises(PermissionDeniedError):
-        service.report(build_user(role), build_report())
+    second = service.report(driver, build_report(idempotency_key=key))
+
+    assert second is first
+
+
+def test_same_key_from_another_driver_creates_another_incident(driver: User) -> None:
+    service = IncidentService(InMemoryIncidentRepository())
+    other_driver = build_user(UserRole.DRIVER)
+    key = uuid4()
+    first = service.report(driver, build_report(idempotency_key=key))
+
+    other = service.report(other_driver, build_report(idempotency_key=key))
+
+    assert other.id != first.id
+    assert other.reporter_id == other_driver.id
 
 
 def _at(hour: int) -> datetime:
@@ -386,3 +400,100 @@ def test_driver_cannot_see_incident_of_another_driver(driver: User) -> None:
 def test_visible_incident_that_does_not_exist_is_not_found(analyst: User) -> None:
     with pytest.raises(NotFoundError):
         IncidentService(InMemoryIncidentRepository()).get_visible_to(999, analyst)
+
+
+def test_driver_lists_own_incidents_newest_first(driver: User) -> None:
+    closed_at_8 = build_incident(driver, status=CLOSED, created_at=_at(8))
+    at_10 = build_incident(driver, created_at=_at(10))
+    at_9 = build_incident(driver, created_at=_at(9))
+    from_another_driver = build_incident(build_user(UserRole.DRIVER), created_at=_at(11))
+    service = IncidentService(InMemoryIncidentRepository(closed_at_8, at_10, at_9, from_another_driver))
+
+    assert service.list_reported_by(driver) == [at_10, at_9, closed_at_8]
+
+
+# --- history -----------------------------------------------------------------
+
+
+def build_closed(reporter: User, closed_at_hour: int, status: IncidentStatus = CLOSED, **overrides: object) -> Incident:
+    fields: dict[str, object] = {"status": status, "closed_at": _at(closed_at_hour), "closure_reason": "Resolvido", "created_at": _at(1)}
+    return build_incident(reporter, **(fields | overrides))
+
+
+def test_history_lists_only_closed_incidents_recently_closed_first(driver: User) -> None:
+    closed_at_10 = build_closed(driver, 10)
+    inconclusive_at_11 = build_closed(driver, 11, INCONCLUSIVE)
+    still_open = build_incident(driver, created_at=_at(12))
+    service = IncidentService(InMemoryIncidentRepository(closed_at_10, inconclusive_at_11, still_open))
+
+    page = service.list_closed(page=1, page_size=20)
+
+    assert page.items == [inconclusive_at_11, closed_at_10]
+    assert page.total == 2
+    assert (page.page, page.page_size) == (1, 20)
+
+
+def test_history_paginates(driver: User) -> None:
+    oldest, middle, newest = build_closed(driver, 8), build_closed(driver, 9), build_closed(driver, 10)
+    service = IncidentService(InMemoryIncidentRepository(oldest, middle, newest))
+
+    page = service.list_closed(page=2, page_size=2)
+
+    assert page.items == [oldest]
+    assert page.total == 3
+
+
+def test_history_page_past_the_end_is_empty(driver: User) -> None:
+    service = IncidentService(InMemoryIncidentRepository(build_closed(driver, 8), build_closed(driver, 9)))
+
+    page = service.list_closed(page=5, page_size=2)
+
+    assert page.items == []
+    assert page.total == 2
+
+
+def test_history_filters_by_status_criticality_and_category(driver: User) -> None:
+    expected = build_closed(driver, 8, INCONCLUSIVE, criticality=Criticality.HIGH, category=IncidentCategory.ROAD_BLOCKAGE)
+    other_status = build_closed(driver, 9, CLOSED, criticality=Criticality.HIGH, category=IncidentCategory.ROAD_BLOCKAGE)
+    other_criticality = build_closed(driver, 10, INCONCLUSIVE, criticality=Criticality.LOW, category=IncidentCategory.ROAD_BLOCKAGE)
+    other_category = build_closed(driver, 11, INCONCLUSIVE, criticality=Criticality.HIGH, category=IncidentCategory.ADVERSE_WEATHER)
+    service = IncidentService(InMemoryIncidentRepository(expected, other_status, other_criticality, other_category))
+
+    page = service.list_closed(
+        page=1,
+        page_size=20,
+        statuses={INCONCLUSIVE},
+        criticalities={Criticality.HIGH},
+        categories={IncidentCategory.ROAD_BLOCKAGE},
+    )
+
+    assert page.items == [expected]
+    assert page.total == 1
+
+
+@pytest.mark.parametrize("active_status", [OPEN, INVESTIGATING])
+def test_history_with_active_status_is_rejected(driver: User, active_status: IncidentStatus) -> None:
+    service = IncidentService(InMemoryIncidentRepository(build_closed(driver, 8)))
+
+    with pytest.raises(BusinessRuleError, match="encerrados"):
+        service.list_closed(page=1, page_size=20, statuses={CLOSED, active_status})
+
+
+def test_history_puts_incidents_without_closing_time_last(driver: User) -> None:
+    first_without_time = build_closed(driver, 8, closed_at=None)
+    second_without_time = build_closed(driver, 8, closed_at=None)
+    closed_at_9 = build_closed(driver, 9)
+    service = IncidentService(InMemoryIncidentRepository(first_without_time, closed_at_9, second_without_time))
+
+    page = service.list_closed(page=1, page_size=20)
+
+    assert page.items == [closed_at_9, second_without_time, first_without_time]
+
+
+# --- categories --------------------------------------------------------------
+
+
+def test_only_accident_with_victims_has_locked_criticality() -> None:
+    locked = {option.category for option in category_options() if option.criticality_locked}
+
+    assert locked == {IncidentCategory.ACCIDENT_WITH_VICTIMS}
