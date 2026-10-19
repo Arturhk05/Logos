@@ -46,12 +46,13 @@ def _conflict_response(error: ConflictError) -> JSONResponse:
 
 @router.get("", response_model=IncidentQueueResponse)
 def list_active_incidents(
-    _: CentralUser,
+    user: CentralUser,
     service: Service,
     criticality: Annotated[list[Criticality] | None, Query()] = None,
     category: Annotated[list[IncidentCategory] | None, Query()] = None,
+    assigned_to_me: bool = False,
 ) -> IncidentQueueResponse:
-    queue = service.list_active(criticality or (), category or ())
+    queue = service.list_active(criticality or (), category or (), assignee_id=user.id if assigned_to_me else None)
     return IncidentQueueResponse.model_validate(queue)
 
 

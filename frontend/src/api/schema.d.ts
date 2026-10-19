@@ -536,6 +536,7 @@ export interface operations {
             query?: {
                 criticality?: components["schemas"]["Criticality"][] | null;
                 category?: components["schemas"]["IncidentCategory"][] | null;
+                assigned_to_me?: boolean;
             };
             header?: never;
             path?: never;

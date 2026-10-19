@@ -103,6 +103,29 @@ def test_driver_cannot_see_the_queue(db_client: TestClient, login_as: LoginAs) -
     assert response.json() == {"detail": "Você não tem permissão para realizar esta ação."}
 
 
+def test_queue_shows_only_incidents_assigned_to_me(db_client: TestClient, db_session: Session, login_as: LoginAs) -> None:
+    camila = login_as(UserRole.ANALYST, "camila")
+    lucas = create_user(db_session, UserRole.ANALYST, username="lucas")
+    driver = create_user(db_session, UserRole.DRIVER)
+    mine = create_incident(db_session, driver, status=IncidentStatus.INVESTIGATING, assignee_id=camila.id)
+    create_incident(db_session, driver, status=IncidentStatus.INVESTIGATING, assignee_id=lucas.id)
+    create_incident(db_session, driver)
+
+    response = db_client.get("/api/incidents", params={"assigned_to_me": "true"})
+
+    assert response.status_code == status.HTTP_200_OK
+    assert [item["id"] for item in response.json()["items"]] == [mine.id]
+    assert sum(response.json()["counts"].values()) == 3
+
+
+def test_driver_cannot_filter_the_queue(db_client: TestClient, login_as: LoginAs) -> None:
+    login_as(UserRole.DRIVER, "jose")
+
+    response = db_client.get("/api/incidents", params={"assigned_to_me": "true"})
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
 def test_queue_requires_login(db_client: TestClient) -> None:
     response = db_client.get("/api/incidents")
 

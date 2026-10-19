@@ -831,6 +831,16 @@
             }
           },
           {
+            "in": "query",
+            "name": "assigned_to_me",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Assigned To Me",
+              "type": "boolean"
+            }
+          },
+          {
             "in": "cookie",
             "name": "access_token",
             "required": false,
