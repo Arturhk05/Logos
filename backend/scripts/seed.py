@@ -31,6 +31,14 @@ DEMO_USERS: tuple[tuple[str, UserRole], ...] = (
     ("paulo", UserRole.DRIVER),
 )
 
+# Fictitious numbers with area code 00, so no demo link opens a chat with a real person.
+DEMO_PHONES: dict[str, str] = {
+    "jose": "5500900000001",
+    "maria": "5500900000002",
+    "antonio": "5500900000003",
+    "paulo": "5500900000004",
+}
+
 # The brief asks how the central handles 100 simultaneous incidents; the closed ones fill a few history pages.
 INCIDENTS_PER_STATUS: dict[IncidentStatus, int] = {
     IncidentStatus.OPEN: 65,
@@ -143,6 +151,18 @@ def seed_users(session: Session) -> int:
     missing = [(username, role) for username, role in DEMO_USERS if users.get_by_username(username) is None]
     for username, role in missing:
         session.add(User(username=username, password_hash=hash_password(DEMO_PASSWORD), role=role))
+    session.flush()
+    return len(missing)
+
+
+def seed_phones(session: Session) -> int:
+    """Give the demo drivers without a phone their demo one and return how many were filled.
+
+    A phone already set is kept, so it can be changed by hand for testing.
+    """
+    missing = list(session.scalars(select(User).where(User.username.in_(DEMO_PHONES), User.phone.is_(None))))
+    for user in missing:
+        user.phone = DEMO_PHONES[user.username]
     session.flush()
     return len(missing)
 
@@ -280,8 +300,10 @@ def main() -> None:
         if args.reset_incidents:
             print(f"Incidents deleted: {reset_incidents(session)}")
         users_created = seed_users(session)
+        phones_filled = seed_phones(session)
         incidents_created = seed_incidents(session)
     print(f"Demo users created: {users_created}")
+    print(f"Driver phones filled: {phones_filled}")
     print(f"Sample incidents created: {incidents_created}")
 
 

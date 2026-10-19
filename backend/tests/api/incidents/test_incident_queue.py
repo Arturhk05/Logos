@@ -117,3 +117,15 @@ def test_queue_items_do_not_include_events(db_client: TestClient, db_session: Se
 
     [item] = response.json()["items"]
     assert "events" not in item
+
+
+def test_queue_does_not_show_phones(db_client: TestClient, db_session: Session, login_as: LoginAs) -> None:
+    camila = login_as(UserRole.ANALYST, "camila")
+    driver = create_user(db_session, UserRole.DRIVER, phone="5500900000001")
+    create_incident(db_session, driver, status=IncidentStatus.INVESTIGATING, assignee_id=camila.id)
+
+    response = db_client.get("/api/incidents")
+
+    assert response.json()["items"]
+    assert "phone" not in response.text
+    assert "5500900000001" not in response.text

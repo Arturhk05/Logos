@@ -14,7 +14,7 @@ const active: IncidentDetail = {
   status: "OPEN",
   location: "BR-116, km 230",
   description: "Colisão traseira com duas pessoas feridas.",
-  reporter: { id: 9, username: "jose" },
+  reporter: { id: 9, username: "jose", phone: "5500900000001" },
   assignee: null,
   closed_by: null,
   closed_at: null,

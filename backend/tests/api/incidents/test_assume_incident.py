@@ -41,6 +41,20 @@ def test_assume_with_outdated_version_returns_409_with_current_state(db_client: 
     assert "password_hash" not in response.text
 
 
+def test_conflict_response_includes_the_reporter_phone(db_client: TestClient, db_session: Session, login_as: LoginAs) -> None:
+    login_as(UserRole.ANALYST, "camila")
+    lucas = create_user(db_session, UserRole.ANALYST, username="lucas")
+    driver = create_user(db_session, UserRole.DRIVER, phone="5500900000001")
+    incident = create_incident(db_session, driver, status=IncidentStatus.INVESTIGATING, assignee_id=lucas.id, version=2)
+
+    response = db_client.post(f"/api/incidents/{incident.id}/assume", json={"version": 1})
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    current = response.json()["current"]
+    assert current["reporter"]["phone"] == "5500900000001"
+    assert "phone" not in current["assignee"]
+
+
 def test_assume_incident_that_has_an_assignee_returns_422(db_client: TestClient, db_session: Session, login_as: LoginAs) -> None:
     login_as(UserRole.ANALYST, "camila")
     lucas = create_user(db_session, UserRole.ANALYST, username="lucas")

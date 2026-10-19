@@ -167,7 +167,7 @@
             "type": "string"
           },
           "reporter": {
-            "$ref": "#/components/schemas/UserSummary"
+            "$ref": "#/components/schemas/ReporterSummary"
           },
           "status": {
             "$ref": "#/components/schemas/IncidentStatus"
@@ -492,6 +492,30 @@
           "description"
         ],
         "title": "ReportIncidentRequest",
+        "type": "object"
+      },
+      "ReporterSummary": {
+        "description": "The only place a phone is shown: the reporter of an incident's details (RN-13).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "phone": {
+            "title": "Phone",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "phone"
+        ],
+        "title": "ReporterSummary",
         "type": "object"
       },
       "StatusChangeRequest": {

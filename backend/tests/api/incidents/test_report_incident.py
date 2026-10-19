@@ -28,7 +28,7 @@ def test_driver_reports_incident_with_suggested_criticality(db_client: TestClien
     assert body["status"] == "OPEN"
     assert body["location"] == "BR-116, km 230"
     assert body["assignee"] is None
-    assert body["reporter"] == {"id": jose.id, "username": "jose"}
+    assert body["reporter"] == {"id": jose.id, "username": "jose", "phone": jose.phone}
     assert body["version"] == 1
 
 
