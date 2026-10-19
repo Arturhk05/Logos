@@ -142,6 +142,8 @@ _"Quando o meu pneu fura na estrada, eu quero reportar o incidente e acionar a c
 
 - **RN-12:** Todo incidente tem um registro de alterações: o reporte e cada mudança de status registram quem fez, quando, o status anterior e o novo, e o motivo, quando houver. O registro só recebe novas entradas; nada nele é alterado ou apagado. Uma alteração recusada (RN-03, RN-08) não entra no registro.
 
+- **RN-13:** Todo motorista tem um telefone de contato. O telefone aparece apenas no detalhe dos incidentes que ele reportou, para a central e para o próprio motorista, e a central pode abrir uma conversa no WhatsApp a partir dele. **O cadastro e a alteração do telefone estão fora do escopo do MVP.**
+
 ## Histórias de usuário
 
 ### US-01: Visualizar incidentes priorizados
@@ -246,6 +248,7 @@ _"Quando o meu pneu fura na estrada, eu quero reportar o incidente e acionar a c
 - **Dado** que escolhi uma categoria, **quando** ela é selecionada, **então** a criticidade é preenchida automaticamente com a sugestão para essa categoria, e posso alterá-la (RN-10).
 - **Dado** que escolhi _Acidente com Vítimas_, **quando** a categoria é selecionada, **então** a criticidade fica fixa em _Alta_, sem opção de alteração (RN-10).
 - **Dado** que preenchi os campos obrigatórios, **quando** envio o reporte, **então** vejo uma confirmação com o número do incidente criado (RN-07).
+- **Dado** que enviei um reporte, **quando** a confirmação aparece, **então** sou avisado de que a central vai entrar em contato pelo WhatsApp, com o final do meu número (RN-13).
 - **Dado** que deixei um campo obrigatório vazio, **quando** tento enviar, **então** vejo qual campo precisa ser corrigido, sem perder o que já preenchi.
 - **Dado** uma falha de rede durante o envio, **quando** a requisição falha, **então** vejo um aviso claro e um botão "Tentar novamente", e os dados preenchidos são mantidos.
 - **Dado** que cliquei em enviar mais de uma vez por causa da lentidão, **quando** quando os envios são processados, **então** apenas um incidente é criado.
@@ -305,6 +308,31 @@ _"Quando o meu pneu fura na estrada, eu quero reportar o incidente e acionar a c
 - **Dado** um encerramento ou uma devolução à fila com motivo, **quando** vejo a linha do tempo, **então** o motivo aparece junto da alteração.
 - **Dado** que outra pessoa alterou o incidente enquanto eu o via, **quando** os detalhes são atualizados, **então** a nova alteração aparece na linha do tempo, sem que eu precise recarregar a página.
 - **Dado** que uma alteração foi recusada por conflito (RN-08), **quando** vejo a linha do tempo, **então** ela não aparece.
+
+### US-13: Falar com o motorista pelo WhatsApp
+
+**Como** analista ou supervisor,
+**quero** ver o telefone do motorista e abrir uma conversa com ele já sobre o incidente,
+**para** não perder tempo procurando o contato.
+
+**Critérios de aceite**
+
+- **Dado** um incidente, **quando** abro seus detalhes, **então** vejo o telefone de quem o reportou (RN-13).
+- **Dado** os detalhes de um incidente, **quando** clico no telefone do motorista, **então** o WhatsApp abre com uma mensagem pronta que identifica o incidente (número, categoria e local).
+
+### US-14: Ver os incidentes assumidos por mim
+
+**Como** analista ou supervisor,
+**quero** filtrar a fila pelos incidentes que eu assumi,
+**para** acompanhar o que está sob minha responsabilidade sem procurar na fila inteira.
+
+**Critérios de aceite**
+
+- **Dado** que ativo o filtro "Assumidos por mim", **quando** a fila é exibida, **então** vejo apenas os incidentes ativos dos quais sou o responsável.
+- **Dado** que combino esse filtro com criticidade e categoria, **quando** aplico, **então** são exibidos apenas incidentes que atendem a todos.
+- **Dado** que ativei o filtro, **quando** recarrego a página ou compartilho a URL, **então** o filtro é mantido.
+- **Dado** que o filtro está ativo, **quando** olho os contadores por criticidade, **então** eles continuam mostrando todos os incidentes ativos.
+- **Dado** que não assumi nenhum incidente, **quando** ativo o filtro, **então** vejo um estado vazio com a opção de limpar os filtros.
 
 ## Requisitos não funcionais
 
