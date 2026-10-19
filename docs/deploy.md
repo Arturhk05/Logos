@@ -281,7 +281,7 @@ aws acm wait certificate-validated --certificate-arn $CERT_ARN
 
 > Na Hostinger, o campo **Nome** recebe só a parte antes do domínio (por exemplo, `_03a6....logos`), e o destino vai sem o ponto final.
 
-Bucket privado para o frontend (por enquanto, só a [página provisória](../infra/frontend-placeholder/index.html)), acessível apenas pelo CloudFront via OAC:
+Bucket privado para o frontend, acessível apenas pelo CloudFront via OAC. Ele fica vazio até a etapa 6 publicar o build do React:
 
 ```bash
 BUCKET=logos-frontend-$ACCOUNT_ID
@@ -289,7 +289,6 @@ aws s3api create-bucket --bucket $BUCKET
 aws s3api put-public-access-block --bucket $BUCKET \
   --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
 aws s3api put-bucket-tagging --bucket $BUCKET --tagging 'TagSet=[{Key=Project,Value=logos}]'
-aws s3 cp infra/frontend-placeholder/index.html s3://$BUCKET/index.html --content-type "text/html; charset=utf-8" --cache-control no-cache
 
 OAC_ID=$(aws cloudfront create-origin-access-control --origin-access-control-config \
   'Name=logos-frontend-oac,SigningProtocol=sigv4,SigningBehavior=always,OriginAccessControlOriginType=s3' \
@@ -402,7 +401,7 @@ curl -s $D/ | grep -o 'assets/index-[^"]*\.js'                                  
 curl -sI $D/assets/<arquivo-acima> | grep -i cache-control                      # public, max-age=31536000, immutable
 ```
 
-No navegador: entrar com cada papel, recarregar a página em `/fila/<id>`, `/historico?page=2` e `/meus-reportes`, e abrir `/fila/00000000-0000-0000-0000-000000000000`, que deve mostrar a mensagem de incidente não encontrado.
+No navegador: recarregar a página em `/fila/<id>` e `/historico?page=2` (analista ou supervisor) e em `/meus-reportes` (motorista), e abrir `/fila/999999`, que deve mostrar a mensagem de incidente não encontrado. Cada papel só acessa as próprias telas: em uma tela de outro papel, ou com um id que não é número, a interface volta para a tela inicial.
 
 No navegador, em `$D/api/docs`, fazer o login pelo Swagger (`POST /api/auth/login`) e depois chamar `GET /api/me`, que deve responder 200 sem nenhuma configuração extra.
 
