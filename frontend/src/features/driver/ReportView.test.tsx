@@ -123,9 +123,14 @@ describe("ReportView", () => {
   });
 
   it("confirms the created incident number", () => {
-    const html = renderView(<ReportView {...props} created={{ id: 142 }} />);
+    const html = renderView(
+      <ReportView {...props} created={{ id: 142, phone: "5500900000001" }} />,
+    );
 
     expect(html).toContain("Incidente #142 enviado.");
+    expect(html).toContain(
+      "A central vai entrar em contato pelo WhatsApp no número terminado em 0001.",
+    );
     expect(html).toContain("Ver meus reportes");
     expect(html).toMatch(buttonWith("Reportar outro"));
   });

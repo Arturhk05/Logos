@@ -1,9 +1,10 @@
-import { CircleAlert, RotateCw, TriangleAlert } from "lucide-react";
+import { CircleAlert, MessageCircle, RotateCw, TriangleAlert } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { IncidentDetail } from "../../api/client";
 import { formatDateTime } from "../../shared/format";
 import { CATEGORY_LABELS } from "../../shared/labels";
+import { formatPhone, incidentContactMessage, whatsAppLink } from "../../shared/phone";
 import { Button } from "../../shared/ui/Button";
 import { CategoryIcon } from "../../shared/ui/CategoryIcon";
 import { CriticalityBadge } from "../../shared/ui/CriticalityBadge";
@@ -70,7 +71,19 @@ export function IncidentDrawerView(props: IncidentDrawerViewProps) {
       <p className="break-words whitespace-pre-line">{incident.description}</p>
 
       <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 border-y border-line py-4 text-sm">
-        <Detail term="Reportado por">{incident.reporter.username}</Detail>
+        <Detail term="Reportado por">
+          {incident.reporter.username}
+          <a
+            href={whatsAppLink(incident.reporter.phone, incidentContactMessage(incident))}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Abrir conversa no WhatsApp"
+            className="flex w-fit items-center gap-1.5 font-semibold text-accent hover:underline"
+          >
+            <MessageCircle aria-hidden className="size-4 shrink-0" />
+            {formatPhone(incident.reporter.phone)}
+          </a>
+        </Detail>
         <Detail term="Aberto em">{formatDateTime(incident.created_at, props.now)}</Detail>
         <Detail term="Atualizado em">{formatDateTime(incident.updated_at, props.now)}</Detail>
         <Detail term="Responsável">{incident.assignee?.username ?? "—"}</Detail>

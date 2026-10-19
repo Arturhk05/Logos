@@ -43,6 +43,21 @@ const props: IncidentDrawerViewProps = {
 };
 
 describe("IncidentDrawerView", () => {
+  it("links the reporter phone to a WhatsApp chat about the incident", () => {
+    const html = renderView(<IncidentDrawerView {...props} />);
+
+    const link =
+      /<a [^>]*href="https:\/\/wa\.me\/5500900000001\?text=([^"]+)"[^>]*>(.*?)<\/a>/.exec(html);
+    expect(link).not.toBeNull();
+    expect(decodeURIComponent(link?.[1] ?? "")).toBe(
+      "Olá! Aqui é a central Logos, sobre o incidente #7 (Acidente com Vítimas, BR-116, km 230).",
+    );
+    expect(link?.[2]).toContain("(00) 90000-0001");
+    expect(link?.[0]).toContain('target="_blank"');
+    expect(link?.[0]).toContain('rel="noopener noreferrer"');
+    expect(link?.[0]).toContain('title="Abrir conversa no WhatsApp"');
+  });
+
   it("shows every detail of an active incident", () => {
     const html = renderView(<IncidentDrawerView {...props} />);
 

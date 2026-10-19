@@ -19,13 +19,13 @@ export function ReportPage() {
   const [errors, setErrors] = useState<ReportErrors>({});
   // One key per report: every attempt of this draft reuses it, so the API creates it only once.
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
-  const [created, setCreated] = useState<{ id: number }>();
+  const [created, setCreated] = useState<{ id: number; phone: string }>();
 
   const mutation = useMutation({
     mutationFn: ({ body, key }: { body: ReportIncidentRequest; key: string }) =>
       reportIncident(body, key),
     onSuccess: (incident) => {
-      setCreated({ id: incident.id });
+      setCreated({ id: incident.id, phone: incident.reporter.phone });
       setDraft(EMPTY_DRAFT);
       setIdempotencyKey(crypto.randomUUID());
       void queryClient.invalidateQueries({ queryKey: myReportsQueryOptions.queryKey });
