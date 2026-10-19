@@ -50,7 +50,7 @@ CATEGORY_WEIGHTS: dict[IncidentCategory, int] = {
 CRITICALITY_WEIGHTS: dict[IncidentCategory, dict[Criticality, int]] = {
     IncidentCategory.ACCIDENT_WITH_VICTIMS: {Criticality.HIGH: 1},
     IncidentCategory.VEHICLE_ACCIDENT: {Criticality.HIGH: 7, Criticality.MEDIUM: 3},
-    IncidentCategory.ROAD_BLOCKAGE: {Criticality.HIGH: 2, Criticality.MEDIUM: 5, Criticality.LOW: 3},
+    IncidentCategory.ROAD_BLOCKAGE: {Criticality.HIGH: 2, Criticality.MEDIUM: 3, Criticality.LOW: 5},
     IncidentCategory.ADVERSE_WEATHER: {Criticality.HIGH: 1, Criticality.MEDIUM: 5, Criticality.LOW: 4},
     IncidentCategory.MECHANICAL_PROBLEM: {Criticality.HIGH: 1, Criticality.MEDIUM: 5, Criticality.LOW: 4},
 }

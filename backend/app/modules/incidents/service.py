@@ -27,7 +27,7 @@ FINAL_STATUSES = frozenset(status for status, targets in ALLOWED_TRANSITIONS.ite
 SUGGESTED_CRITICALITY: dict[IncidentCategory, Criticality] = {
     IncidentCategory.ACCIDENT_WITH_VICTIMS: Criticality.HIGH,
     IncidentCategory.VEHICLE_ACCIDENT: Criticality.HIGH,
-    IncidentCategory.ROAD_BLOCKAGE: Criticality.MEDIUM,
+    IncidentCategory.ROAD_BLOCKAGE: Criticality.LOW,
     IncidentCategory.ADVERSE_WEATHER: Criticality.MEDIUM,
     IncidentCategory.MECHANICAL_PROBLEM: Criticality.MEDIUM,
 }

@@ -134,7 +134,7 @@ _"Quando o meu pneu fura na estrada, eu quero reportar o incidente e acionar a c
   | ----------------------------------- | -------------------- |
   | Acidente com Vítimas                | Alta (fixa)          |
   | Acidente com Veículo                | Alta                 |
-  | Bloqueio de Pista                   | Média                |
+  | Bloqueio de Pista                   | Baixa                |
   | Condição Climática Atípica na Pista | Média                |
   | Problema Mecânico                   | Média                |
 

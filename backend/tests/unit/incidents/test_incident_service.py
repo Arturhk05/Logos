@@ -226,7 +226,7 @@ def test_driver_reports_incident_that_starts_open_without_assignee(driver: User)
     [
         (IncidentCategory.ACCIDENT_WITH_VICTIMS, Criticality.HIGH),
         (IncidentCategory.VEHICLE_ACCIDENT, Criticality.HIGH),
-        (IncidentCategory.ROAD_BLOCKAGE, Criticality.MEDIUM),
+        (IncidentCategory.ROAD_BLOCKAGE, Criticality.LOW),
         (IncidentCategory.ADVERSE_WEATHER, Criticality.MEDIUM),
         (IncidentCategory.MECHANICAL_PROBLEM, Criticality.MEDIUM),
     ],

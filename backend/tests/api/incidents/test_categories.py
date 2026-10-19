@@ -21,7 +21,7 @@ def test_categories_list_labels_and_suggested_criticality(db_client: TestClient,
             "criticality_locked": False,
         },
         {"category": "MECHANICAL_PROBLEM", "label": "Problema Mecânico", "suggested_criticality": "MEDIUM", "criticality_locked": False},
-        {"category": "ROAD_BLOCKAGE", "label": "Bloqueio de Pista", "suggested_criticality": "MEDIUM", "criticality_locked": False},
+        {"category": "ROAD_BLOCKAGE", "label": "Bloqueio de Pista", "suggested_criticality": "LOW", "criticality_locked": False},
     ]
 
 
