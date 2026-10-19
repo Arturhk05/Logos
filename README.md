@@ -14,13 +14,13 @@ Todos os usuários de demonstração usam a senha `logos123`, que também aparec
 
 | Usuário | Papel | O que faz |
 |---|---|---|
-| `jose` | Motorista | Reporta incidentes (com a criticidade sugerida pela categoria) e acompanha o status dos próprios reportes. Telas pensadas para celular. |
+| `jose` | Motorista | Reporta incidentes (com a criticidade sugerida pela categoria) e acompanha os próprios reportes, com os que estão em andamento separados dos encerrados. Telas pensadas para celular. |
 | `camila`, `lucas` | Analista | Vê a fila de incidentes ativos, priorizada por criticidade e com filtros, assume um incidente e o leva até o encerramento. Com os dois, dá para ver a disputa pelo mesmo incidente. |
 | `roberto` | Supervisor | Tudo o que o analista faz, e também altera incidentes assumidos por outras pessoas. |
 
 Os analistas e o supervisor também consultam o histórico paginado dos incidentes encerrados. No detalhe de qualquer incidente, a linha do tempo mostra quem o reportou, assumiu, devolveu à fila e encerrou, quando e com qual motivo. A base de demonstração tem 140 incidentes: 100 ativos na fila e 40 no histórico.
 
-No detalhe do incidente, o telefone do motorista abre uma conversa no WhatsApp já com uma mensagem sobre o incidente; na demonstração, os números são fictícios (DDD `00`) e não levam a ninguém. Na fila, o filtro de responsável mostra só os incidentes "Sem responsável" ou só os "Assumidos por mim" (um de cada vez) e combina com os filtros de criticidade e categoria.
+No detalhe do incidente, o telefone do motorista abre uma conversa no WhatsApp já com uma mensagem sobre o incidente. Na fila, o filtro de responsável mostra só os incidentes "Sem responsável" ou só os "Assumidos por mim" (um de cada vez) e combina com os filtros de criticidade e categoria. Um incidente de criticidade Alta que ninguém assumiu tem um ponto pulsando ao lado da criticidade, que para quando alguém o assume.
 
 ## Como rodar localmente
 
@@ -87,7 +87,7 @@ A interface e a API ficam no mesmo domínio, atrás do CloudFront, então a sess
 
 ## Qualidade
 
-- **Testes:** no backend, 242 testes com 99% de cobertura de linhas e ramos (`uv run pytest --cov`): unitários (regras de negócio com repositórios em memória), de integração (repositórios, migrations e concorrência no PostgreSQL) e de API (do HTTP ao banco). No frontend, a lógica de cada tela e cada estado da interface.
+- **Testes:** no backend, 290 testes com 99% de cobertura de linhas e ramos (`uv run pytest --cov`): unitários (regras de negócio com repositórios em memória), de integração (repositórios, migrations e concorrência no PostgreSQL) e de API (do HTTP ao banco). No frontend, a lógica de cada tela e cada estado da interface.
 - **CI** ([`ci.yml`](.github/workflows/ci.yml)): a cada push no `dev` e em cada pull request, lint, formatação, tipos e testes do backend e do frontend, o build e a conferência de que o contrato da API e os tipos gerados estão em dia.
 - **Deploy** ([`deploy-backend.yml`](.github/workflows/deploy-backend.yml) e [`deploy-frontend.yml`](.github/workflows/deploy-frontend.yml)): a cada push na `main` que altere o backend ou o frontend, repete as verificações daquela parte e só publica se todas passarem.
 

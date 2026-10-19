@@ -21,7 +21,7 @@ scripts/               # comandos executados fora da API (ex.: seed dos dados de
 
 Um módulo pode depender de `shared` e de outros módulos, mas `shared` nunca depende de um módulo.
 
-Dentro de cada módulo, as responsabilidades ficam separadas em camadas:
+Dentro de cada módulo, as responsabilidades ficam separadas em camadas, e cada módulo tem só os arquivos de que precisa:
 
 | Arquivo | Responsabilidade |
 |---|---|
@@ -29,6 +29,9 @@ Dentro de cada módulo, as responsabilidades ficam separadas em camadas:
 | `models.py` | Tabelas do banco de dados (SQLAlchemy) |
 | `repository.py` | Acesso aos dados, sem regras de negócio |
 | `service.py` | Regras de negócio, que usam o repository |
+| `schemas.py` | Formato das requisições e respostas da API (Pydantic) |
+| `router.py` | Rotas HTTP e permissões que dependem só do papel do usuário |
+| `dependencies.py` | Dependências das rotas: o service de cada requisição e, no `auth`, o usuário logado e a checagem de papel |
 
 ## Pré-requisitos
 
