@@ -7,5 +7,5 @@ export default defineConfig({
   // Same origin as in production (CloudFront), so the SameSite=Strict, Path=/api cookie works without CORS.
   server: { proxy: { "/api": "http://localhost:8000" } },
   // Node's fetch rejects jsdom's AbortSignal, which the client uses for timeouts and cancellation.
-  test: { environment: "node" },
+  test: { environment: "node", setupFiles: ["./src/test/setup.ts"] },
 });
