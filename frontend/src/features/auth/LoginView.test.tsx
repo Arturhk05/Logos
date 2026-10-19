@@ -60,6 +60,8 @@ describe("LoginView", () => {
   });
 
   it("disables the button while logging in", () => {
-    expect(renderView(<LoginView {...props} pending />)).toMatch(/<button[^>]*disabled/);
+    expect(renderView(<LoginView {...props} pending />)).toMatch(
+      /<button[^>]*type="submit"[^>]*disabled=""/,
+    );
   });
 });

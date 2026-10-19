@@ -22,7 +22,7 @@ describe("shared UI", () => {
   });
 
   it("disables a pending button", () => {
-    expect(renderView(<Button pending>Assumir</Button>)).toMatch(/<button[^>]*disabled/);
+    expect(renderView(<Button pending>Assumir</Button>)).toMatch(/<button[^>]*disabled=""/);
   });
 
   it("shows the error message with a retry button", () => {
