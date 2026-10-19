@@ -16,8 +16,9 @@
   --color-on-critical: var(--color-white);
   /* Red as text (errors, the high counter): on the dark theme it needs a lighter shade to be readable. */
   --color-critical-ink: var(--color-red-600);
-  --color-critical-soft: var(--color-red-50);
-  --color-critical-hover: var(--color-red-100);
+  /* Lighter than red-50, so gray text on a high criticality row keeps the 4.5:1 contrast of WCAG AA. */
+  --color-critical-soft: color-mix(in oklab, var(--color-red-50) 50%, var(--color-white));
+  --color-critical-hover: color-mix(in oklab, var(--color-red-100) 25%, var(--color-white));
   --color-critical-line: var(--color-red-200);
   --color-warning-soft: var(--color-amber-50);
   --color-warning-line: var(--color-amber-300);
@@ -67,4 +68,71 @@ body {
 button:not(:disabled),
 [role="button"]:not([aria-disabled="true"]) {
   cursor: pointer;
+}
+
+/* Dialogs enter smoothly: the drawer slides in from the right, the modal fades and grows a little, and
+   the backdrop darkens. They leave at once, because React removes them from the page. */
+dialog[open] {
+  transition:
+    translate 250ms ease-out,
+    opacity 200ms ease-out,
+    scale 200ms ease-out;
+}
+
+dialog[data-variant="drawer"][open] {
+  translate: 0 0;
+}
+
+dialog[data-variant="modal"][open] {
+  opacity: 1;
+  scale: 1;
+}
+
+dialog[open]::backdrop {
+  transition: background-color 250ms ease-out;
+}
+
+@starting-style {
+  dialog[data-variant="drawer"][open] {
+    translate: 100% 0;
+  }
+
+  dialog[data-variant="modal"][open] {
+    opacity: 0;
+    scale: 0.96;
+  }
+
+  dialog[open]::backdrop {
+    background-color: transparent;
+  }
+}
+
+/* A short cross-fade between screens (the navigation links ask React Router for a view transition). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 150ms;
+}
+
+/* For people who asked their system for less motion, nothing slides or fades; spinners keep turning,
+   because they are what tells that something is loading. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after,
+  ::backdrop {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+
+  .animate-spin {
+    animation-duration: 1s !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
 }

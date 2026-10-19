@@ -31,6 +31,14 @@ describe("LoginView", () => {
     }
   });
 
+  it("makes each demo user big enough to tap on a phone", () => {
+    const html = renderView(<LoginView {...props} />);
+
+    expect(html).toMatch(
+      /<button[^>]*class="[^"]*min-h-11[^"]*"[^>]*>(?:(?!<\/button>)[\s\S])*camila/,
+    );
+  });
+
   it("shows the login error", () => {
     const html = renderView(<LoginView {...props} errorMessage="Usuário ou senha inválidos." />);
 

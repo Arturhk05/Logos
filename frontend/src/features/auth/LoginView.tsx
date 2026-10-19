@@ -107,7 +107,7 @@ export function LoginView({
               <li key={user.username}>
                 <button
                   type="button"
-                  className="flex min-h-10 w-full items-center justify-between rounded-lg px-2 hover:bg-canvas"
+                  className="flex min-h-11 w-full items-center justify-between rounded-lg px-2 hover:bg-canvas"
                   onClick={() => {
                     onPickDemo(user.username);
                   }}

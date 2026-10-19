@@ -9,7 +9,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
       <CircleAlert aria-hidden className="size-8 text-muted" />
       <p className="max-w-sm">{message}</p>
       {onRetry && (
-        <Button variant="secondary" onClick={onRetry}>
+        <Button variant="secondary" onClick={onRetry} className="min-h-11">
           <RotateCw aria-hidden className="size-4" />
           Tentar novamente
         </Button>

@@ -19,10 +19,15 @@ export function CentralLayout() {
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-4">
           <span className="text-lg font-extrabold tracking-tight">Logos</span>
           <nav aria-label="Principal" className="flex h-full gap-5">
-            <NavLink to="/fila" className={`${TAB} border-transparent text-muted hover:text-ink`}>
+            <NavLink
+              viewTransition
+              to="/fila"
+              className={`${TAB} border-transparent text-muted hover:text-ink`}
+            >
               Fila
             </NavLink>
             <NavLink
+              viewTransition
               to="/historico"
               className={`${TAB} border-transparent text-muted hover:text-ink`}
             >

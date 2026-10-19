@@ -53,6 +53,8 @@ export function Dialog({ open, onClose, title, variant = "modal", children }: Di
     <dialog
       ref={ref}
       aria-label={title}
+      // The enter animation in index.css depends on it: the drawer slides in, the modal fades in.
+      data-variant={variant}
       className={`bg-surface p-0 text-ink backdrop:bg-backdrop ${VARIANTS[variant]}`}
     >
       <div className="flex h-full flex-col">

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { renderView } from "../../test/render";
 import { Button } from "./Button";
 import { CriticalityBadge } from "./CriticalityBadge";
+import { Dialog } from "./Dialog";
 import { EmptyState, ErrorState } from "./StateMessage";
 import { StatusLabel } from "./StatusLabel";
 
@@ -55,6 +56,30 @@ describe("shared UI", () => {
 
     expect(html).toContain("Sem conexão. Verifique sua internet e tente novamente.");
     expect(html).toContain("Tentar novamente");
+  });
+
+  it("makes the retry button big enough to tap on a phone", () => {
+    const html = renderView(<ErrorState message="Sem conexão." onRetry={() => undefined} />);
+
+    expect(html).toMatch(
+      /<button[^>]*class="[^"]*min-h-11[^"]*"[^>]*>(?:(?!<\/button>)[\s\S])*Tentar novamente/,
+    );
+  });
+
+  it("tells the stylesheet which way the dialog enters", () => {
+    const drawer = renderView(
+      <Dialog open onClose={() => undefined} title="Incidente #7" variant="drawer">
+        x
+      </Dialog>,
+    );
+    const modal = renderView(
+      <Dialog open onClose={() => undefined} title="Fechar incidente">
+        x
+      </Dialog>,
+    );
+
+    expect(drawer).toMatch(/<dialog[^>]*data-variant="drawer"/);
+    expect(modal).toMatch(/<dialog[^>]*data-variant="modal"/);
   });
 
   it("shows the empty message with its action", () => {

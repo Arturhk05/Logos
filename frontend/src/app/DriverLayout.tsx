@@ -33,11 +33,11 @@ export function DriverLayout() {
         aria-label="Principal"
         className="fixed inset-x-0 bottom-0 mx-auto flex max-w-md border-t border-line bg-surface"
       >
-        <NavLink to="/reportar" className={TAB}>
+        <NavLink viewTransition to="/reportar" className={TAB}>
           <CirclePlus aria-hidden className="size-5" />
           Reportar
         </NavLink>
-        <NavLink to="/meus-reportes" className={TAB}>
+        <NavLink viewTransition to="/meus-reportes" className={TAB}>
           <List aria-hidden className="size-5" />
           Meus reportes
         </NavLink>
