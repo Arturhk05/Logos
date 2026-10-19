@@ -63,6 +63,8 @@ A interface e a API ficam no mesmo domínio, atrás do CloudFront, então a sess
 | Reporte com sinal instável | Chave de idempotência: "tentar novamente" nunca cria um incidente duplicado | [ADR-08](docs/adr/ADR-08-idempotencia-do-reporte.md) |
 | Rotas do React | Uma CloudFront Function entrega o `index.html` nas rotas da interface sem alterar as respostas da API | [ADR-09](docs/adr/ADR-09-rotas-do-frontend-no-cloudfront.md) |
 | Trecho CloudFront → API | HTTP, com a EC2 aceitando conexões só do CloudFront | [ADR-07](docs/adr/ADR-07-http-entre-cloudfront-e-api.md) |
+| Organização do backend | Módulos por área de negócio; regras só no service, repository atrás de uma interface, e o banco validando só valores | [ADR-10](docs/adr/ADR-10-organizacao-do-backend.md) |
+| Acesso ao banco | Síncrono: mais simples de ler e testar, e suficiente para o volume do desafio | [ADR-11](docs/adr/ADR-11-acesso-sincrono-ao-banco.md) |
 | Rate limit | Retirado do escopo do MVP; a decisão fica registrada para depois | [ADR-04](docs/adr/ADR-04-rate-limit.md) |
 
 ### Bibliotecas
