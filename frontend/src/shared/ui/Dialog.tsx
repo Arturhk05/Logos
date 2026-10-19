@@ -53,7 +53,7 @@ export function Dialog({ open, onClose, title, variant = "modal", children }: Di
     <dialog
       ref={ref}
       aria-label={title}
-      className={`bg-surface p-0 text-ink backdrop:bg-zinc-900/30 ${VARIANTS[variant]}`}
+      className={`bg-surface p-0 text-ink backdrop:bg-backdrop ${VARIANTS[variant]}`}
     >
       <div className="flex h-full flex-col">
         <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-3">

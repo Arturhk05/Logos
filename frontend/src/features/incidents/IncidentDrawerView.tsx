@@ -87,7 +87,7 @@ export function IncidentDrawerView(props: IncidentDrawerViewProps) {
       {props.saveError !== undefined && (
         <div
           role="alert"
-          className="flex flex-wrap items-center justify-between gap-3 text-sm text-critical"
+          className="flex flex-wrap items-center justify-between gap-3 text-sm text-critical-ink"
         >
           <span className="flex items-center gap-2">
             <CircleAlert aria-hidden className="size-4 shrink-0" />

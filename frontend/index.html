@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Logos</title>
+    <script>
+      // Applies the saved theme before the first paint, so a dark choice never flashes light.
+      // Same key and values as src/shared/theme.ts.
+      try {
+        if (localStorage.getItem("logos-theme") === "dark") {
+          document.documentElement.dataset.theme = "dark";
+        }
+      } catch (error) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

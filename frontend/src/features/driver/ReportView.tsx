@@ -39,7 +39,7 @@ const CHOICE =
 function choiceLook(pressed: boolean, critical = false): string {
   if (!pressed) return "border-line bg-surface hover:border-line-strong";
   return critical
-    ? "border-critical bg-critical font-semibold text-white"
+    ? "border-critical bg-critical font-semibold text-on-critical"
     : "border-accent bg-accent font-semibold text-on-accent";
 }
 
@@ -190,7 +190,10 @@ function Field({ label, error, children }: { label: string; error?: string; chil
 /** Always rendered with room for one line, so a message never pushes the form down. */
 function FieldError({ message }: { message?: string }) {
   return (
-    <p role="alert" className="flex min-h-5 items-start gap-1.5 text-sm leading-5 text-critical">
+    <p
+      role="alert"
+      className="flex min-h-5 items-start gap-1.5 text-sm leading-5 text-critical-ink"
+    >
       {message !== undefined && (
         <>
           <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />

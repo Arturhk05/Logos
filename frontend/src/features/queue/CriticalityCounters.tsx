@@ -35,12 +35,12 @@ export function CriticalityCounters({ counts, selected, onToggle }: CriticalityC
           >
             <Icon
               aria-hidden
-              className={`size-4 ${pressed ? "" : high ? "text-critical" : "text-muted"}`}
+              className={`size-4 ${pressed ? "" : high ? "text-critical-ink" : "text-muted"}`}
             />
             <span>{CRITICALITY_LABELS[criticality]}</span>
             {counts !== undefined && (
               <span
-                className={`text-base font-bold tabular-nums ${!pressed && high ? "text-critical" : ""}`}
+                className={`text-base font-bold tabular-nums ${!pressed && high ? "text-critical-ink" : ""}`}
               >
                 {counts[criticality] ?? 0}
               </span>

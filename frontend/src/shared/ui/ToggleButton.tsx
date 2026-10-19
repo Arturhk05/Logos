@@ -12,7 +12,7 @@ interface ToggleButtonProps {
 export function ToggleButton({ pressed, onToggle, tone = "default", children }: ToggleButtonProps) {
   const look = pressed
     ? tone === "critical"
-      ? "border-critical bg-critical text-white"
+      ? "border-critical bg-critical text-on-critical"
       : "border-accent bg-accent text-on-accent"
     : "border-line bg-surface hover:border-line-strong hover:bg-canvas";
   return (

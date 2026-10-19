@@ -2,6 +2,7 @@ import { CirclePlus, List, LogOut } from "lucide-react";
 import { NavLink, Outlet } from "react-router";
 
 import { Button } from "../shared/ui/Button";
+import { ThemeSwitch } from "../shared/ui/ThemeSwitch";
 import { useCurrentUser, useLogout } from "./session";
 
 // Tabs at the bottom, within reach of the thumb; each one is taller than the 44 px minimum (RNF-07).
@@ -18,6 +19,7 @@ export function DriverLayout() {
         <span className="text-lg font-extrabold tracking-tight">Logos</span>
         <div className="flex items-center gap-1 text-sm text-muted">
           <span>{user.username}</span>
+          <ThemeSwitch />
           <Button variant="ghost" onClick={logout} className="min-h-11">
             <LogOut aria-hidden className="size-4" />
             Sair

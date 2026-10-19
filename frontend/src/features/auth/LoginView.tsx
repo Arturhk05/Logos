@@ -80,7 +80,7 @@ export function LoginView({
                 a live region that already exists is also announced more reliably. */}
             <p
               role="alert"
-              className="flex min-h-5 items-start gap-2 text-sm leading-5 text-critical"
+              className="flex min-h-5 items-start gap-2 text-sm leading-5 text-critical-ink"
             >
               {errorMessage !== undefined && (
                 <>

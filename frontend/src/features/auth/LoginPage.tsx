@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 import { homePathFor, login, meQueryOptions } from "../../app/session";
+import { ThemeSwitch } from "../../shared/ui/ThemeSwitch";
 import { DEMO_PASSWORD } from "./demo-users";
 import { LoginView } from "./LoginView";
 
@@ -27,22 +28,27 @@ export function LoginPage() {
   });
 
   return (
-    <LoginView
-      username={credentials.username}
-      password={credentials.password}
-      onChange={(field, value) => {
-        setCredentials((current) => ({ ...current, [field]: value }));
-      }}
-      onSubmit={() => {
-        mutation.mutate(credentials);
-      }}
-      onPickDemo={(username) => {
-        setCredentials({ username, password: DEMO_PASSWORD });
-      }}
-      pending={mutation.isPending}
-      errorMessage={mutation.error?.message}
-      // Once the user tries again, the old notice no longer helps.
-      expired={expired && mutation.isIdle}
-    />
+    <>
+      <div className="fixed top-3 right-3">
+        <ThemeSwitch />
+      </div>
+      <LoginView
+        username={credentials.username}
+        password={credentials.password}
+        onChange={(field, value) => {
+          setCredentials((current) => ({ ...current, [field]: value }));
+        }}
+        onSubmit={() => {
+          mutation.mutate(credentials);
+        }}
+        onPickDemo={(username) => {
+          setCredentials({ username, password: DEMO_PASSWORD });
+        }}
+        pending={mutation.isPending}
+        errorMessage={mutation.error?.message}
+        // Once the user tries again, the old notice no longer helps.
+        expired={expired && mutation.isIdle}
+      />
+    </>
   );
 }

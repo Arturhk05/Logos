@@ -3,6 +3,7 @@ import { NavLink, Outlet } from "react-router";
 
 import { ROLE_LABELS } from "../shared/labels";
 import { Button } from "../shared/ui/Button";
+import { ThemeSwitch } from "../shared/ui/ThemeSwitch";
 import { useCurrentUser, useLogout } from "./session";
 
 const TAB =
@@ -28,7 +29,8 @@ export function CentralLayout() {
               Histórico
             </NavLink>
           </nav>
-          <div className="ml-auto flex items-center gap-3 text-sm">
+          <div className="ml-auto flex items-center gap-2 text-sm">
+            <ThemeSwitch />
             <span className="hidden text-muted sm:inline">
               <span className="font-medium text-ink">{user.username}</span> ·{" "}
               {ROLE_LABELS[user.role]}

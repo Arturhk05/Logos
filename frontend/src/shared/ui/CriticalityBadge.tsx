@@ -11,7 +11,7 @@ const ICONS: Record<Criticality, LucideIcon> = {
 // Only high criticality gets color; medium and low differ by the weight of the outline and the text,
 // so the exception stands out.
 const STYLES: Record<Criticality, string> = {
-  HIGH: "border-critical bg-critical text-white",
+  HIGH: "border-critical bg-critical text-on-critical",
   MEDIUM: "border-line-strong text-ink",
   LOW: "border-line text-muted",
 };

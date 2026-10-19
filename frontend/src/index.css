@@ -13,12 +13,45 @@
   --color-accent: var(--color-zinc-900);
   --color-on-accent: var(--color-white);
   --color-critical: var(--color-red-600);
+  --color-on-critical: var(--color-white);
+  /* Red as text (errors, the high counter): on the dark theme it needs a lighter shade to be readable. */
+  --color-critical-ink: var(--color-red-600);
   --color-critical-soft: var(--color-red-50);
   --color-critical-hover: var(--color-red-100);
   --color-critical-line: var(--color-red-200);
   --color-warning-soft: var(--color-amber-50);
   --color-warning-line: var(--color-amber-300);
   --color-warning-ink: var(--color-amber-900);
+  --color-backdrop: color-mix(in oklab, var(--color-zinc-950) 30%, transparent);
+}
+
+:root {
+  color-scheme: light;
+}
+
+/* Applied by the inline script in index.html and by useTheme; without it the theme is light. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-canvas: var(--color-zinc-950);
+  --color-surface: var(--color-zinc-900);
+  /* A little grayer than white, which is tiring to read on a dark background. */
+  --color-ink: var(--color-zinc-200);
+  --color-muted: var(--color-zinc-400);
+  --color-line: var(--color-zinc-800);
+  --color-line-strong: var(--color-zinc-600);
+  --color-accent: var(--color-zinc-200);
+  --color-on-accent: var(--color-zinc-900);
+  /* Deeper and less saturated than on light: a bright red glares on a dark background. */
+  --color-critical: var(--color-red-800);
+  --color-on-critical: var(--color-red-50);
+  --color-critical-ink: color-mix(in oklab, var(--color-red-400) 80%, var(--color-zinc-300));
+  --color-critical-soft: color-mix(in oklab, var(--color-red-500) 7%, transparent);
+  --color-critical-hover: color-mix(in oklab, var(--color-red-500) 12%, transparent);
+  --color-critical-line: color-mix(in oklab, var(--color-red-900) 70%, var(--color-zinc-800));
+  --color-warning-soft: color-mix(in oklab, var(--color-amber-500) 12%, transparent);
+  --color-warning-line: var(--color-amber-700);
+  --color-warning-ink: var(--color-amber-200);
+  --color-backdrop: color-mix(in oklab, var(--color-black) 60%, transparent);
 }
 
 /* The scrollbar's space is always reserved, so the layout does not shift when a list gets long enough to scroll. */

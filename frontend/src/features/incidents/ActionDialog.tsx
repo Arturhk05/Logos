@@ -90,7 +90,10 @@ export function ActionDialog(props: ActionDialogProps) {
         )}
 
         {/* Always rendered with room for one line, so a message never moves the buttons. */}
-        <p role="alert" className="flex min-h-5 items-start gap-2 text-sm leading-5 text-critical">
+        <p
+          role="alert"
+          className="flex min-h-5 items-start gap-2 text-sm leading-5 text-critical-ink"
+        >
           {props.error !== undefined && (
             <>
               <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
