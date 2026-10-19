@@ -112,7 +112,15 @@ Criados pelo seed, tanto no Docker quanto no ambiente de desenvolvimento. Todos 
 
 ## Incidentes de exemplo
 
-O seed também cria 140 incidentes, com o mesmo conteúdo em todos os ambientes e datas relativas ao momento em que ele roda: 100 ativos na fila (65 _Abertos_ e 35 _Em Investigação_), como os "100 incidentes simultâneos" do desafio, e 40 encerrados no histórico (28 _Fechados_ e 12 _Inconclusivos_). Eles só são criados quando não existe nenhum incidente, então o seed nunca altera nem duplica incidentes que já estejam em uso. Para recriá-los no Docker local, apague os dados com `docker compose down -v`.
+O seed também cria 140 incidentes, com o mesmo conteúdo em todos os ambientes e datas relativas ao momento em que ele roda: 100 ativos na fila (65 _Abertos_ e 35 _Em Investigação_), como os "100 incidentes simultâneos" do desafio, e 40 encerrados no histórico (28 _Fechados_ e 12 _Inconclusivos_). Cada um tem uma linha do tempo coerente com o seu estado (RN-12): reportado, assumido e, conforme o caso, encerrado, com alguns incidentes em investigação que um supervisor devolveu à fila antes de outro analista assumir. Eles só são criados quando não existe nenhum incidente, então o seed nunca altera nem duplica incidentes que já estejam em uso.
+
+Para recriá-los, **apagando todos os incidentes existentes**:
+
+```bash
+uv run python -m scripts.seed --reset-incidents
+```
+
+No Docker local, também dá para apagar todos os dados com `docker compose down -v`.
 
 ## Qualidade de código
 

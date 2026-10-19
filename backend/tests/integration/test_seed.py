@@ -8,7 +8,7 @@ from app.modules.incidents.enums import Criticality, IncidentCategory, IncidentS
 from app.modules.incidents.models import Incident
 from app.modules.users.enums import UserRole
 from app.modules.users.models import User
-from scripts.seed import seed_incidents, seed_users
+from scripts.seed import reset_incidents, seed_incidents, seed_users
 from tests.factories import create_incident, create_user
 
 EXPECTED_USERS = {
@@ -139,3 +139,71 @@ def test_seed_incidents_were_opened_at_different_times_in_the_past(db_session: S
 
     assert all(incident.created_at < datetime.now(UTC) for incident in incidents)
     assert len({incident.created_at for incident in incidents}) == len(incidents)
+
+
+# --- change log (RN-12) ------------------------------------------------------
+
+
+def test_seed_every_incident_starts_with_its_report(db_session: Session) -> None:
+    for incident in _seeded_incidents(db_session):
+        first = incident.events[0]
+        assert (first.from_status, first.to_status, first.actor_id) == (None, IncidentStatus.OPEN, incident.reporter_id)
+        assert first.created_at == incident.created_at
+
+
+def test_seed_history_matches_the_current_state(db_session: Session) -> None:
+    for incident in _seeded_incidents(db_session):
+        last = incident.events[-1]
+        assert last.to_status is incident.status
+        assert last.created_at == incident.updated_at
+        assert incident.version == len(incident.events)
+        for previous, current in zip(incident.events, incident.events[1:], strict=False):
+            assert current.from_status is previous.to_status
+
+
+def test_seed_handled_incidents_were_assumed_by_their_assignee(db_session: Session) -> None:
+    for incident in _seeded_incidents(db_session):
+        if incident.status is not IncidentStatus.OPEN:
+            assumed = [event for event in incident.events if event.to_status is IncidentStatus.INVESTIGATING]
+            assert assumed[-1].actor_id == incident.assignee_id
+
+
+def test_seed_closed_incidents_end_with_their_closing(db_session: Session) -> None:
+    for incident in _seeded_incidents(db_session):
+        if incident.status in CLOSED:
+            last = incident.events[-1]
+            assert (last.actor_id, last.created_at, last.reason) == (incident.closed_by_id, incident.closed_at, incident.closure_reason)
+
+
+def test_seed_some_incidents_were_returned_to_the_queue_with_a_reason(db_session: Session) -> None:
+    incidents = _seeded_incidents(db_session)
+    supervisors = {user.id for user in _users(db_session) if user.role is UserRole.SUPERVISOR}
+    returns = [
+        event
+        for incident in incidents
+        for event in incident.events
+        if (event.from_status, event.to_status) == (IncidentStatus.INVESTIGATING, IncidentStatus.OPEN)
+    ]
+
+    assert returns
+    assert all(event.reason and event.actor_id in supervisors for event in returns)
+
+
+def test_seed_events_are_in_chronological_order(db_session: Session) -> None:
+    for incident in _seeded_incidents(db_session):
+        moments = [event.created_at for event in incident.events]
+        assert moments == sorted(moments)
+        assert len(set(moments)) == len(moments)
+
+
+def test_reset_incidents_recreates_the_sample_data(db_session: Session) -> None:
+    seed_users(db_session)
+    create_incident(db_session, create_user(db_session, UserRole.DRIVER), description="Criado à mão")
+    seed_incidents(db_session)
+
+    assert reset_incidents(db_session) == 1
+    assert seed_incidents(db_session) == 140
+
+    incidents = list(db_session.scalars(select(Incident)))
+    assert len(incidents) == 140
+    assert "Criado à mão" not in {incident.description for incident in incidents}
