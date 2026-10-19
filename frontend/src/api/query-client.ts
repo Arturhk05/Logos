@@ -4,7 +4,7 @@ import { ApiError, type ApiErrorKind } from "./errors";
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
-// The API's rate limits are per minute (RNF-02), so a longer wait only means a broken header.
+// Caps the wait a Retry-After can ask for, so a wrong header never leaves the screen waiting for minutes.
 const MAX_DELAY_MS = 60_000;
 
 // Failures that may succeed on a new attempt; the others would only repeat (RNF-03).
