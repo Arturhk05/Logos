@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Colors are variables so the dark theme only has to redefine them. Red is reserved for high criticality. */
+/* Colors are variables so the dark theme only has to redefine them. Red is reserved for high criticality and form errors. */
 @theme {
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
 

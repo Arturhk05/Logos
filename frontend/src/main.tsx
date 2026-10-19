@@ -1,24 +1,20 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { createBrowserRouter } from "react-router";
 import { RouterProvider } from "react-router/dom";
 import "@fontsource-variable/inter";
 
+import { setUnauthorizedHandler } from "./api/client";
 import { queryClient } from "./api/query-client";
+import { router } from "./app/router";
+import { handleUnauthorized } from "./app/session";
 import "./index.css";
 
-// Placeholder route until the login and the role screens exist.
-const router = createBrowserRouter([
-  {
-    path: "/",
-    element: (
-      <main className="p-6">
-        <h1 className="text-2xl font-semibold">Logos</h1>
-      </main>
-    ),
-  },
-]);
+setUnauthorizedHandler(() => {
+  handleUnauthorized(queryClient, (to, options) => {
+    void router.navigate(to, options);
+  });
+});
 
 const root = document.getElementById("root");
 if (root === null) throw new Error("Missing #root element in index.html");
