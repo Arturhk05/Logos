@@ -14,6 +14,7 @@ import { CategoryFilter } from "./CategoryFilter";
 import { CriticalityCounters } from "./CriticalityCounters";
 import { hasFilters, toggle, type QueueFilters } from "./filters";
 import { UpdatedAgo } from "./UpdatedAgo";
+import { WaitingDot } from "./WaitingDot";
 
 export interface QueueViewProps {
   state: "loading" | "error" | "ready";
@@ -116,7 +117,7 @@ function QueueContent({
       <table className="hidden w-full table-fixed border-separate border-spacing-0 overflow-hidden rounded-xl border border-line bg-surface text-sm md:table">
         {/* Fixed widths: filtering never makes the columns jump to fit the remaining rows. */}
         <colgroup>
-          <col className="w-32" />
+          <col className="w-36" />
           <col className="w-[28%]" />
           <col />
           <col className="w-44" />
@@ -141,6 +142,7 @@ function QueueContent({
         <tbody>
           {items.map((item) => {
             const high = item.criticality === "HIGH";
+            const waiting = high && item.assignee === null;
             return (
               <tr
                 key={item.id}
@@ -150,7 +152,11 @@ function QueueContent({
                 <td
                   className={`border-b border-line px-4 py-3 ${high ? "shadow-[inset_3px_0_0_var(--color-critical)]" : ""}`}
                 >
-                  <CriticalityBadge criticality={item.criticality} />
+                  {/* The dot goes after the badge, so the badges stay lined up in the column. */}
+                  <span className="flex items-center gap-2">
+                    <CriticalityBadge criticality={item.criticality} />
+                    {waiting && <WaitingDot />}
+                  </span>
                 </td>
                 <td className="border-b border-line px-4 py-3">
                   {/* The link covers the whole row, so a click anywhere opens the incident. */}
@@ -181,6 +187,7 @@ function QueueContent({
       <ul className="flex flex-col gap-2 md:hidden">
         {items.map((item) => {
           const high = item.criticality === "HIGH";
+          const waiting = high && item.assignee === null;
           return (
             <li
               key={item.id}
@@ -193,7 +200,10 @@ function QueueContent({
                     <CategoryIcon category={item.category} className="size-4 text-muted" />
                     {CATEGORY_LABELS[item.category]}
                   </span>
-                  <CriticalityBadge criticality={item.criticality} />
+                  <span className="flex shrink-0 items-center gap-2">
+                    {waiting && <WaitingDot />}
+                    <CriticalityBadge criticality={item.criticality} />
+                  </span>
                 </div>
                 <span className="text-sm">{item.location}</span>
                 <div className="flex items-center justify-between gap-2 text-sm text-muted">

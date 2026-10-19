@@ -194,6 +194,16 @@ describe("QueueView", () => {
     expect(html).toContain("Limpar filtros");
   });
 
+  it("marks only high criticality incidents nobody has taken, in the table and in the list", () => {
+    const assignedHigh: QueueItem = { ...victims, id: 8, assignee: { id: 2, username: "lucas" } };
+    const unassignedLow: QueueItem = { ...weather, id: 10, assignee: null };
+    const marks = (items: QueueItem[]) =>
+      renderView(<QueueView {...props} items={items} />).split("Aguardando responsável").length - 1;
+
+    expect(marks([victims])).toBe(2);
+    expect(marks([assignedHigh, unassignedLow])).toBe(0);
+  });
+
   it("tells when the last refresh failed but keeps the incidents", () => {
     const html = renderView(<QueueView {...props} refreshFailed />);
 
