@@ -61,6 +61,8 @@ uv run python -m scripts.export_openapi   # a partir de backend/
 npm run gen:api                           # a partir de frontend/
 ```
 
+O CI falha se algum dos dois estiver desatualizado.
+
 ## Executar com Docker
 
 Sobe a API e o PostgreSQL, sem precisar do uv nem do Python instalados. Execute a partir da raiz do repositório:

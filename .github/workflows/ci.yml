@@ -28,3 +28,28 @@ jobs:
       - run: uv run mypy app tests migrations scripts
       # Integration and API tests start PostgreSQL with testcontainers, using the runner's Docker.
       - run: uv run pytest
+      # The frontend generates its types from this file, so it must match the API.
+      - run: uv run python -m scripts.export_openapi
+      - run: git diff --exit-code ../frontend/openapi.json
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      # Fails when openapi.json changed but the types were not regenerated.
+      - run: npm run gen:api
+      - run: git diff --exit-code src/api/schema.d.ts
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
