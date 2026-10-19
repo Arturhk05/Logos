@@ -11,6 +11,7 @@ import { TableSkeleton } from "../../shared/ui/Skeleton";
 import { ErrorState } from "../../shared/ui/StateMessage";
 import { StatusLabel } from "../../shared/ui/StatusLabel";
 import type { IncidentAction } from "./actions";
+import { IncidentTimeline } from "./IncidentTimeline";
 
 export interface IncidentDrawerViewProps {
   state: "loading" | "error" | "ready";
@@ -118,6 +119,8 @@ export function IncidentDrawerView(props: IncidentDrawerViewProps) {
           ))}
         </div>
       )}
+
+      <IncidentTimeline events={incident.events} now={props.now} />
     </div>
   );
 }

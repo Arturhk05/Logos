@@ -12,7 +12,7 @@ import {
   availableActions,
   confirmationState,
   needsConfirmation,
-  needsReason,
+  reasonToSend,
   type ConfirmedAction,
   type IncidentAction,
 } from "./actions";
@@ -144,7 +144,7 @@ export function IncidentDrawer({
             attempt({
               action: dialogFor.action,
               incident: dialogFor.seen,
-              reason: needsReason(dialogFor.action) ? reason.trim() : undefined,
+              reason: reasonToSend(dialogFor.action, reason),
             });
           }}
           pending={mutation.isPending}

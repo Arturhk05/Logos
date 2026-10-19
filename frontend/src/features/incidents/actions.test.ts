@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   ACTION_TARGET,
+  acceptsReason,
   availableActions,
   confirmationState,
   needsConfirmation,
   needsReason,
+  reasonToSend,
   type IncidentAction,
 } from "./actions";
 
@@ -36,6 +38,26 @@ describe("needsReason", () => {
     const actions: IncidentAction[] = ["close", "inconclusive", "reopen", "assume"];
 
     expect(actions.map(needsReason)).toEqual([true, true, false, false]);
+  });
+});
+
+describe("acceptsReason", () => {
+  it("takes a reason when closing, and an optional one when sending back to the queue", () => {
+    const actions: IncidentAction[] = ["close", "inconclusive", "reopen", "assume"];
+
+    expect(actions.map(acceptsReason)).toEqual([true, true, true, false]);
+  });
+});
+
+describe("reasonToSend", () => {
+  it.each([
+    ["reopen", "", undefined],
+    ["reopen", "   ", undefined],
+    ["reopen", " Saiu do turno ", "Saiu do turno"],
+    ["close", " Pista liberada ", "Pista liberada"],
+    ["inconclusive", "Sem contato", "Sem contato"],
+  ] as const)("%s with %o sends %o", (action, reason, expected) => {
+    expect(reasonToSend(action, reason)).toBe(expected);
   });
 });
 

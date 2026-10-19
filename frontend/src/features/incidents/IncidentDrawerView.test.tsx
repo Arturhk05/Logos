@@ -134,4 +134,85 @@ describe("IncidentDrawerView", () => {
       renderView(<IncidentDrawerView {...props} state="loading" incident={undefined} />),
     ).toContain('aria-busy="true"');
   });
+
+  it("shows the timeline, oldest first, with who, when and why", () => {
+    const incident: IncidentDetail = {
+      ...active,
+      events: [
+        {
+          actor: { id: 9, username: "jose" },
+          from_status: null,
+          to_status: "OPEN",
+          reason: null,
+          created_at: "2026-10-18T07:02:00Z",
+        },
+        {
+          actor: { id: 1, username: "camila" },
+          from_status: "OPEN",
+          to_status: "INVESTIGATING",
+          reason: null,
+          created_at: "2026-10-18T07:10:00Z",
+        },
+        {
+          actor: { id: 3, username: "roberto" },
+          from_status: "INVESTIGATING",
+          to_status: "OPEN",
+          reason: "Analista saiu do turno",
+          created_at: "2026-10-18T08:00:00Z",
+        },
+        {
+          actor: { id: 2, username: "lucas" },
+          from_status: "OPEN",
+          to_status: "INVESTIGATING",
+          reason: null,
+          created_at: "2026-10-18T08:05:00Z",
+        },
+      ],
+    };
+
+    const text = renderView(<IncidentDrawerView {...props} incident={incident} />).replace(
+      /<[^>]+>/g,
+      " ",
+    );
+
+    expect(text).toContain("Linha do tempo");
+    const order = [
+      "Reportado",
+      "jose",
+      "Assumido",
+      "camila",
+      "Devolvido à fila",
+      "roberto",
+      "Analista saiu do turno",
+      "Assumido",
+      "lucas",
+    ];
+    let from = 0;
+    for (const piece of order) {
+      const at = text.indexOf(piece, from);
+      expect(at, piece).toBeGreaterThanOrEqual(0);
+      from = at + piece.length;
+    }
+  });
+
+  it("shows no reason line for a change without one", () => {
+    const incident: IncidentDetail = {
+      ...active,
+      events: [
+        {
+          actor: { id: 9, username: "jose" },
+          from_status: null,
+          to_status: "OPEN",
+          reason: null,
+          created_at: "2026-10-18T07:02:00Z",
+        },
+      ],
+    };
+
+    const html = renderView(<IncidentDrawerView {...props} incident={incident} />);
+
+    expect(html).toContain("Reportado");
+    expect(html).not.toContain("&quot;");
+    expect(html).not.toContain("“");
+  });
 });
