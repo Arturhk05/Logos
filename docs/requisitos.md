@@ -263,6 +263,8 @@ _"Quando o meu pneu fura na estrada, eu quero reportar o incidente e acionar a c
 
 - **Dado** que reportei incidentes, **quando** acesso "Meus reportes", **então** vejo apenas os meus incidentes, do mais recente para o mais antigo (RN-06).
 - **Dado** que um analista assumiu meu incidente, **quando** vejo a lista, **então** o status aparece como _Em Investigação_.
+- **Dado** que tenho reportes _Abertos_ ou _Em Investigação_, **quando** acesso "Meus reportes", **então** eles aparecem em destaque, separados dos encerrados, com uma frase simples dizendo se a central ainda vai assumir ou se já está cuidando.
+- **Dado** que todos os meus reportes estão encerrados, **quando** acesso "Meus reportes", **então** vejo que não há nenhum reporte em andamento.
 - **Dado** que ainda não reportei nenhum incidente, **quando** acesso "Meus reportes", **então** vejo um estado vazio com um atalho para reportar.
 
 ### US-10: Consultar histórico de incidentes encerrados
