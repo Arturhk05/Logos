@@ -15,11 +15,13 @@ interface AssigneeOptionsProps {
 
 /** One choice at a time: "unassigned" and "assigned to me" together would always be empty. */
 export function AssigneeOptions({ selected, onChange }: AssigneeOptionsProps) {
+  // On a phone the three options share the full width, without icons, and a label may wrap
+  // instead of pushing the page sideways.
   return (
     <div
       role="group"
       aria-label="Filtrar por responsável"
-      className="flex rounded-lg border border-line bg-surface p-0.5"
+      className="flex w-full rounded-lg border border-line bg-surface p-0.5 sm:w-auto"
     >
       {OPTIONS.map(({ value, label, Icon }) => {
         const pressed = selected === value;
@@ -28,12 +30,15 @@ export function AssigneeOptions({ selected, onChange }: AssigneeOptionsProps) {
             key={label}
             type="button"
             aria-pressed={pressed}
-            className={`flex min-h-8.5 items-center gap-2 rounded-md px-3 text-sm whitespace-nowrap transition active:scale-[0.97] ${pressed ? "bg-accent text-on-accent" : "hover:bg-canvas"}`}
+            className={`flex min-h-8.5 min-w-0 flex-1 items-center justify-center gap-2 rounded-md px-2 py-1 text-center text-sm leading-tight transition active:scale-[0.97] sm:flex-none sm:px-3 sm:whitespace-nowrap ${pressed ? "bg-accent text-on-accent" : "hover:bg-canvas"}`}
             onClick={() => {
               onChange(value);
             }}
           >
-            <Icon aria-hidden className={`size-4 ${pressed ? "" : "text-muted"}`} />
+            <Icon
+              aria-hidden
+              className={`hidden size-4 shrink-0 sm:block ${pressed ? "" : "text-muted"}`}
+            />
             {label}
           </button>
         );
