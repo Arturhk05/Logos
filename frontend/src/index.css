@@ -14,11 +14,24 @@
   --color-on-accent: var(--color-white);
   --color-critical: var(--color-red-600);
   --color-critical-soft: var(--color-red-50);
+  --color-critical-hover: var(--color-red-100);
+  --color-critical-line: var(--color-red-200);
   --color-warning-soft: var(--color-amber-50);
   --color-warning-line: var(--color-amber-300);
   --color-warning-ink: var(--color-amber-900);
 }
 
+/* The scrollbar's space is always reserved, so the layout does not shift when a list gets long enough to scroll. */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   @apply bg-canvas text-ink antialiased;
+}
+
+/* Tailwind 4 resets buttons to the default cursor; everything clickable shows the hand. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
 }
