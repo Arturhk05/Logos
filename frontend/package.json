@@ -8,7 +8,9 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "gen:api": "openapi-typescript openapi.json -o src/api/schema.d.ts"
+    "gen:api": "openapi-typescript openapi.json -o src/api/schema.d.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "type": "module",
   "private": true,
@@ -38,6 +40,7 @@
     "tailwindcss": "^4.3.3",
     "typescript": "5.9",
     "typescript-eslint": "^8.71.2",
-    "vite": "^8.3.4"
+    "vite": "^8.3.4",
+    "vitest": "^5.0.5"
   }
 }
