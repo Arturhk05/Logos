@@ -151,6 +151,13 @@
             "title": "Description",
             "type": "string"
           },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/IncidentEventResponse"
+            },
+            "title": "Events",
+            "type": "array"
+          },
           "id": {
             "title": "Id",
             "type": "integer"
@@ -189,9 +196,56 @@
           "closure_reason",
           "version",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "events"
         ],
         "title": "IncidentDetail",
+        "type": "object"
+      },
+      "IncidentEventResponse": {
+        "description": "One entry of the incident's change log (RN-12). No previous status means the report.",
+        "properties": {
+          "actor": {
+            "$ref": "#/components/schemas/UserSummary"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "from_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IncidentStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "to_status": {
+            "$ref": "#/components/schemas/IncidentStatus"
+          }
+        },
+        "required": [
+          "actor",
+          "from_status",
+          "to_status",
+          "reason",
+          "created_at"
+        ],
+        "title": "IncidentEventResponse",
         "type": "object"
       },
       "IncidentHistoryItem": {

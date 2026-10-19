@@ -21,6 +21,7 @@ const active: IncidentDetail = {
   closure_reason: null,
   created_at: "2026-10-18T07:02:00Z",
   updated_at: "2026-10-18T07:05:00Z",
+  events: [],
 };
 
 const closed: IncidentDetail = {

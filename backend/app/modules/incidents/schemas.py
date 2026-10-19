@@ -49,6 +49,18 @@ class IncidentQueueResponse(BaseModel):
     counts: dict[Criticality, int]
 
 
+class IncidentEventResponse(BaseModel):
+    """One entry of the incident's change log (RN-12). No previous status means the report."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    actor: UserSummary
+    from_status: IncidentStatus | None
+    to_status: IncidentStatus
+    reason: str | None
+    created_at: datetime
+
+
 class IncidentDetail(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -67,6 +79,7 @@ class IncidentDetail(BaseModel):
     version: int
     created_at: datetime
     updated_at: datetime
+    events: list[IncidentEventResponse]
 
 
 class VersionedRequest(BaseModel):

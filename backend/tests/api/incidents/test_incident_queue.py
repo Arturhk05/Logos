@@ -107,3 +107,13 @@ def test_queue_requires_login(db_client: TestClient) -> None:
     response = db_client.get("/api/incidents")
 
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_queue_items_do_not_include_events(db_client: TestClient, db_session: Session, login_as: LoginAs) -> None:
+    login_as(UserRole.ANALYST, "camila")
+    create_incident(db_session, create_user(db_session, UserRole.DRIVER))
+
+    response = db_client.get("/api/incidents")
+
+    [item] = response.json()["items"]
+    assert "events" not in item
