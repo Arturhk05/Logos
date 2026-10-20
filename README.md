@@ -5,7 +5,7 @@ Central de resposta a incidentes para uma operação de logística. Motoristas r
 | Link | |
 |---|---|
 | Aplicação | https://logos.arturkrauspenhar.com.br |
-| Vídeo de demonstração | _(link do vídeo)_ |
+| Vídeo de demonstração | https://www.youtube.com/watch?v=FxzbrS6kUQA |
 | Documentação da API (Swagger) | https://logos.arturkrauspenhar.com.br/api/docs |
 
 ## Como usar
